@@ -1,8 +1,10 @@
 import os
 import re
 import sqlite3
+import smtplib
 import uuid
 from datetime import datetime
+from email.message import EmailMessage
 from pathlib import Path
 from urllib.parse import quote, unquote
 
@@ -23,9 +25,62 @@ MIN_IMAGE_WIDTH = 2000
 ADMIN_USERNAME = os.getenv("PHOTO_REVIEW_ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.getenv("PHOTO_REVIEW_ADMIN_PASS", "1982@Sd")
 SECRET_KEY = os.getenv("PHOTO_REVIEW_SECRET_KEY", "change-me-in-production")
+SMTP_HOST = os.getenv("PHOTO_REVIEW_SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("PHOTO_REVIEW_SMTP_PORT", "587"))
+SMTP_USER = os.getenv("PHOTO_REVIEW_SMTP_USER", "").strip()
+SMTP_PASS = os.getenv("PHOTO_REVIEW_SMTP_PASS", "").strip()
+SMTP_USE_TLS = os.getenv("PHOTO_REVIEW_SMTP_USE_TLS", "1").strip() == "1"
+SMTP_USE_SSL = os.getenv("PHOTO_REVIEW_SMTP_USE_SSL", "0").strip() == "1"
+SMTP_FROM = os.getenv("PHOTO_REVIEW_SMTP_FROM", SMTP_USER).strip()
+ADMIN_NOTIFY_EMAIL = os.getenv("PHOTO_REVIEW_ADMIN_NOTIFY_EMAIL", "damir-82@bk.ru").strip().lower()
+PUBLIC_BASE_URL = os.getenv("PHOTO_REVIEW_BASE_URL", "").strip().rstrip("/")
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
+
+
+def public_url(path: str) -> str:
+    if PUBLIC_BASE_URL:
+        return f"{PUBLIC_BASE_URL}{path}"
+    return path
+
+
+def send_email_notification(to_email: str, subject: str, body: str) -> bool:
+    if not SMTP_HOST or not SMTP_FROM or not to_email:
+        return False
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SMTP_FROM
+    msg["To"] = to_email
+    msg.set_content(body)
+
+    try:
+        if SMTP_USE_SSL:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+                if SMTP_USER:
+                    server.login(SMTP_USER, SMTP_PASS)
+                server.send_message(msg)
+            return True
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+            if SMTP_USE_TLS:
+                server.starttls()
+            if SMTP_USER:
+                server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+        return True
+    except Exception:
+        app.logger.exception("Failed to send email notification")
+        return False
+
+
+def photo_status_label_ru(status: str) -> str:
+    if status == "approved":
+        return "Одобрено"
+    if status == "rejected":
+        return "Отклонено"
+    return "На проверке"
 
 
 def get_db_connection() -> sqlite3.Connection:
@@ -426,6 +481,19 @@ def submit_photos():
             conn.rollback()
             return jsonify({"error": str(exc)}), 400
 
+    safe_email = quote(email, safe="")
+    send_email_notification(
+        ADMIN_NOTIFY_EMAIL,
+        "PhotoReview: новая загрузка фото",
+        (
+            f"Пользователь: {name}\n"
+            f"Email: {email}\n"
+            f"Район: {district}\n"
+            f"Фото: {len(files)}\n"
+            f"Кабинет: {public_url(f'/user/{safe_email}')}\n"
+        ),
+    )
+
     return jsonify({"ok": True, "submissionId": submission_id})
 
 
@@ -550,6 +618,19 @@ def upload_user_photos(user_email: str):
 
         updated = conn.execute("SELECT * FROM submissions WHERE id = ?", (submission_id,)).fetchone()
         response_payload = build_submission_payload(conn, updated)
+
+    safe_email = quote(email, safe="")
+    send_email_notification(
+        ADMIN_NOTIFY_EMAIL,
+        "PhotoReview: пользователь загрузил новые фото",
+        (
+            f"Пользователь: {row['name'] or ''}\n"
+            f"Email: {email}\n"
+            f"Район: {row['district'] or ''}\n"
+            f"Фото: {len(files)}\n"
+            f"Кабинет: {public_url(f'/user/{safe_email}')}\n"
+        ),
+    )
 
     return jsonify({"ok": True, "user": response_payload})
 
@@ -983,7 +1064,12 @@ def admin_review_photo(file_id: int):
 
     with get_db_connection() as conn:
         file_row = conn.execute(
-            "SELECT id, submission_id, is_original FROM files WHERE id = ?",
+            """
+            SELECT f.id, f.submission_id, f.is_original, f.file_name, s.email, s.name
+            FROM files f
+            JOIN submissions s ON s.id = f.submission_id
+            WHERE f.id = ?
+            """,
             (file_id,),
         ).fetchone()
         if not file_row:
@@ -1002,6 +1088,24 @@ def admin_review_photo(file_id: int):
         submission_status = recalc_submission_status(conn, file_row["submission_id"])
         conn.commit()
 
+    user_email = (file_row["email"] or "").strip().lower()
+    if user_email:
+        safe_email = quote(user_email, safe="")
+        comment_part = f"\nКомментарий администратора: {comment.strip()}" if comment.strip() else ""
+        send_email_notification(
+            user_email,
+            f"PhotoReview: фото #{file_id} — {photo_status_label_ru(new_status)}",
+            (
+                f"Здравствуйте, {file_row['name'] or 'пользователь'}!\n\n"
+                f"Администратор обновил статус вашего фото.\n"
+                f"Фото: {file_row['file_name']}\n"
+                f"Новый статус: {photo_status_label_ru(new_status)}\n"
+                f"Статус заявки: {photo_status_label_ru(submission_status)}"
+                f"{comment_part}\n\n"
+                f"Личный кабинет: {public_url(f'/user/{safe_email}')}\n"
+            ),
+        )
+
     return jsonify({"ok": True, "submissionStatus": submission_status})
 
 
@@ -1015,7 +1119,12 @@ def admin_save_photo_comment(file_id: int):
 
     with get_db_connection() as conn:
         file_row = conn.execute(
-            "SELECT id, is_original FROM files WHERE id = ?",
+            """
+            SELECT f.id, f.is_original, f.file_name, f.review_status, f.review_comment, s.email, s.name
+            FROM files f
+            JOIN submissions s ON s.id = f.submission_id
+            WHERE f.id = ?
+            """,
             (file_id,),
         ).fetchone()
         if not file_row:
@@ -1028,6 +1137,24 @@ def admin_save_photo_comment(file_id: int):
             (comment, file_id),
         )
         conn.commit()
+
+    old_comment = (file_row["review_comment"] or "").strip()
+    new_comment = (comment or "").strip()
+    user_email = (file_row["email"] or "").strip().lower()
+    if user_email and new_comment and new_comment != old_comment:
+        safe_email = quote(user_email, safe="")
+        send_email_notification(
+            user_email,
+            f"PhotoReview: комментарий по фото #{file_id}",
+            (
+                f"Здравствуйте, {file_row['name'] or 'пользователь'}!\n\n"
+                f"Администратор оставил комментарий по вашему фото.\n"
+                f"Фото: {file_row['file_name']}\n"
+                f"Текущий статус: {photo_status_label_ru(file_row['review_status'])}\n"
+                f"Комментарий: {new_comment}\n\n"
+                f"Личный кабинет: {public_url(f'/user/{safe_email}')}\n"
+            ),
+        )
 
     return jsonify({"ok": True})
 
