@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система проверки фотографий</title>
+    <style>
+        :root {
+            --color-bg-base: #0f172a;
+            --color-bg-elevated: #020617;
+            --color-bg-surface: #1e293b;
+            --color-bg-muted: #334155;
+            --color-text-primary: #f1f5f9;
+            --color-text-secondary: #cbd5e1;
+            --color-text-muted: #94a3b8;
+            --color-text-accent: #38bdf8;
+            --color-primary: #38bdf8;
+            --color-primary-hover: #0ea5e9;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-error: #ef4444;
+            --color-border: rgba(203, 213, 225, 0.2);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --color-bg-base: #ffffff;
+                --color-bg-elevated: #f8fafc;
+                --color-bg-surface: #f1f5f9;
+                --color-bg-muted: #e2e8f0;
+                --color-text-primary: #0f172a;
+                --color-text-secondary: #475569;
+                --color-text-muted: #64748b;
+                --color-text-accent: #0284c7;
+                --color-primary: #0284c7;
+                --color-primary-hover: #0369a1;
+                --color-border: rgba(15, 23, 42, 0.2);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--color-bg-base);
+            color: var(--color-text-primary);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--color-primary);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: var(--color-bg-surface);
+            color: var(--color-text-primary);
+            border: 2px solid var(--color-border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .tab-btn:hover {
+            background: var(--color-bg-muted);
+            border-color: var(--color-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--color-primary);
+            color: var(--color-bg-base);
+            border-color: var(--color-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-card {
+            background: var(--color-bg-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+        }
+
+        input[type="text"],
+        input[type="email"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            background: var(--color-bg-base);
+            color: var(--color-text-primary);
+            border: 2px solid var(--color-border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .file-upload {
+            width: 100%;
+            padding: 40px;
+            background: var(--color-bg-base);
+            border: 3px dashed var(--color-border);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload:hover {
+            border-color: var(--color-primary);
+            background: var(--color-bg-muted);
+        }
+
+        .file-upload input {
+            display: none;
+        }
+
+        .file-preview {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .file-preview img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            border: 2px solid var(--color-border);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--color-primary);
+            color: var(--color-bg-base);
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: var(--color-primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .submissions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .submission-card {
+            background: var(--color-bg-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.3s;
+        }
+
+        .submission-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .submission-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .submission-info {
+            margin-bottom: 10px;
+        }
+
+        .submission-info strong {
+            color: var(--color-primary);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .status-pending {
+            background: var(--color-warning);
+            color: var(--color-bg-base);
+        }
+
+        .status-approved {
+            background: var(--color-success);
+            color: var(--color-bg-base);
+        }
+
+        .status-rejected {
+            background: var(--color-error);
+            color: white;
+        }
+
+        .admin-controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .admin-controls button {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+
+        .admin-controls button:hover {
+            opacity: 0.8;
+        }
+
+        .btn-approve {
+            background: var(--color-success);
+            color: white;
+        }
+
+        .btn-reject {
+            background: var(--color-error);
+            color: white;
+        }
+
+        .comment-section {
+            margin-top: 10px;
+        }
+
+        .comment-section textarea {
+            font-size: 14px;
+            min-height: 60px;
+        }
+
+        .success-message {
+            background: var(--color-success);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .check-status-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background: var(--color-bg-surface);
+            color: var(--color-text-primary);
+            border: 2px solid var(--color-border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: var(--color-primary);
+            color: var(--color-bg-base);
+            border-color: var(--color-primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--color-text-muted);
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .form-card {
+                padding: 20px;
+            }
+
+            .submissions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📸 Система проверки фотографий</h1>
+            <p style="color: var(--color-text-secondary);">Загрузите фото на проверку или отслеживайте статус</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="submit">Отправить фото</button>
+            <button class="tab-btn" data-tab="check">Проверить статус</button>
+            <button class="tab-btn" data-tab="admin" id="admin-tab-btn" style="display: none;">Панель администратора</button>
+        </div>
+
+        <!-- Submit Photo Tab -->
+        <div id="submit-tab" class="tab-content active">
+            <div class="form-card">
+                <h2 style="margin-bottom: 20px; color: var(--color-primary);">Отправка фотографии</h2>
+                <form id="submit-form">
+                    <div class="form-group">
+                        <label for="name">Имя *</label>
+                        <input type="text" id="name" required placeholder="Введите ваше имя">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="district">Район *</label>
+                        <select id="district" required style="width: 100%; padding: 12px; background: var(--color-bg-base); color: var(--color-text-primary); border: 2px solid var(--color-border); border-radius: 8px; font-size: 16px;">
+                            <option value="">Выберите район</option>
+                            <option value="Агрызский">Агрызский</option>
+                            <option value="Азнакаевский">Азнакаевский</option>
+                            <option value="Аксубаевский">Аксубаевский</option>
+                            <option value="Актанышский">Актанышский</option>
+                            <option value="Алексеевский">Алексеевский</option>
+                            <option value="Алькеевский">Алькеевский</option>
+                            <option value="Альметьевский">Альметьевский</option>
+                            <option value="Апастовский">Апастовский</option>
+                            <option value="Арский">Арский</option>
+                            <option value="Атнинский">Атнинский</option>
+                            <option value="Бавлинский">Бавлинский</option>
+                            <option value="Балтасинский">Балтасинский</option>
+                            <option value="Бугульминский">Бугульминский</option>
+                            <option value="Буинский">Буинский</option>
+                            <option value="Верхнеуслонский">Верхнеуслонский</option>
+                            <option value="Высокогорский">Высокогорский</option>
+                            <option value="Дрожжановский">Дрожжановский</option>
+                            <option value="Елабужский">Елабужский</option>
+                            <option value="Заинский">Заинский</option>
+                            <option value="Зеленодольский">Зеленодольский</option>
+                            <option value="Кайбицкий">Кайбицкий</option>
+                            <option value="Камско-Устьинский">Камско-Устьинский</option>
+                            <option value="Кукморский">Кукморский</option>
+                            <option value="Лаишевский">Лаишевский</option>
+                            <option value="Лениногорский">Лениногорский</option>
+                            <option value="Мамадышский">Мамадышский</option>
+                            <option value="Менделеевский">Менделеевский</option>
+                            <option value="Мензелинский">Мензелинский</option>
+                            <option value="Муслюмовский">Муслюмовский</option>
+                            <option value="Нижнекамский">Нижнекамский</option>
+                            <option value="Новошешминский">Новошешминский</option>
+                            <option value="Нурлатский">Нурлатский</option>
+                            <option value="Пестречинский">Пестречинский</option>
+                            <option value="Рыбно-Слободский">Рыбно-Слободский</option>
+                            <option value="Сабинский">Сабинский</option>
+                            <option value="Сармановский">Сармановский</option>
+                            <option value="Спасский">Спасский</option>
+                            <option value="Тетюшский">Тетюшский</option>
+                            <option value="Тукаевский">Тукаевский</option>
+                            <option value="Тюлячинский">Тюлячинский</option>
+                            <option value="Черемшанский">Черемшанский</option>
+                            <option value="Чистопольский">Чистопольский</option>
+                            <option value="Ютазинский">Ютазинский</option>
+                            <option value="г. Казань">г. Казань</option>
+                            <option value="г. Набережные Челны">г. Набережные Челны</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" required placeholder="your@email.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Телефон</label>
+                        <input type="text" id="phone" placeholder="+7 (999) 123-45-67">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="comment">Комментарий</label>
+                        <textarea id="comment" placeholder="Дополнительная информация (необязательно)"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Фотографии для проверки *</label>
+                        <div class="file-upload" id="file-upload">
+                            <input type="file" id="photo" accept="image/*" required multiple>
+                            <p style="color: var(--color-text-muted);">
+                                📁 Нажмите или перетащите фото (можно несколько)<br>
+                                <small>Требования: мин. 2000px по высоте, мин. 250 КБ<br>JPG, PNG, WEBP</small>
+                            </p>
+                        </div>
+                        <div class="file-preview" id="file-preview"></div>
+                    </div>
+
+                    <button type="submit" class="btn">Отправить на проверку</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Check Status Tab -->
+        <div id="check-tab" class="tab-content">
+            <div class="form-card check-status-form">
+                <h2 style="margin-bottom: 20px; color: var(--color-primary);">Проверка статуса</h2>
+                <form id="check-form">
+                    <div class="form-group">
+                        <label for="check-email">Email</label>
+                        <input type="email" id="check-email" required placeholder="your@email.com">
+                    </div>
+                    <button type="submit" class="btn">Проверить</button>
+                </form>
+
+                <div id="status-result" style="margin-top: 30px;"></div>
+            </div>
+        </div>
+
+        <!-- Admin Tab -->
+        <div id="admin-tab" class="tab-content">
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">Все</button>
+                <button class="filter-btn" data-filter="pending">На проверке</button>
+                <button class="filter-btn" data-filter="approved">Одобрено</button>
+                <button class="filter-btn" data-filter="rejected">Отклонено</button>
+            </div>
+
+            <div class="submissions-grid" id="admin-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // Database simulation
+        let submissions = [];
+        let currentFilter = 'all';
+        let isAdminAuthenticated = false;
+
+        // Check for admin access in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (window.location.pathname === '/admin' || urlParams.get('admin') === 'true') {
+            const username = prompt('Введите логин:');
+            const password = prompt('Введите пароль:');
+            
+            if (username === 'admin' && password === '1982@Sd') {
+                isAdminAuthenticated = true;
+                document.getElementById('admin-tab-btn').style.display = 'block';
+                document.getElementById('admin-tab-btn').click();
+            } else {
+                alert('❌ Неверный логин или пароль');
+                window.location.href = '/';
+            }
+        }
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.tab;
+                
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                btn.classList.add('active');
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+
+                if (tabName === 'admin') {
+                    renderAdminList();
+                }
+            });
+        });
+
+        // File upload preview
+        const fileUpload = document.getElementById('file-upload');
+        const photoInput = document.getElementById('photo');
+        const filePreview = document.getElementById('file-preview');
+
+        fileUpload.addEventListener('click', () => photoInput.click());
+
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.style.borderColor = 'var(--color-primary)';
+        });
+
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.style.borderColor = 'var(--color-border)';
+        });
+
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.style.borderColor = 'var(--color-border)';
+            
+            if (e.dataTransfer.files.length) {
+                photoInput.files = e.dataTransfer.files;
+                previewFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        photoInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                validateAndPreviewFiles(e.target.files);
+            }
+        });
+
+        function validateAndPreviewFiles(files) {
+            filePreview.innerHTML = '';
+            let allValid = true;
+
+            Array.from(files).forEach(file => {
+                const minSize = 250 * 1024;
+                if (file.size < minSize) {
+                    alert(`❌ Файл ${file.name} слишком маленький. Минимальный размер: 250 КБ`);
+                    allValid = false;
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        if (img.height < 2000) {
+                            alert(`❌ Высота фото ${file.name} слишком маленькая. Минимум: 2000px. Высота: ${img.height}px`);
+                            allValid = false;
+                            return;
+                        }
+
+                        const imgDiv = document.createElement('div');
+                        imgDiv.style.marginTop = '15px';
+                        imgDiv.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 2px solid var(--color-border);">
+                            <p style="margin-top: 5px; color: var(--color-text-muted); font-size: 14px;">
+                                ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} МБ) - ${img.width}×${img.height}px
+                            </p>
+                        `;
+                        filePreview.appendChild(imgDiv);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+
+            if (!allValid) {
+                photoInput.value = '';
+                filePreview.innerHTML = '';
+            }
+        }
+
+        function validateAndPreviewFile(file) {
+            // Validate file size (min 250 KB)
+            const minSize = 250 * 1024; // 250 KB in bytes
+            if (file.size < minSize) {
+                alert(`❌ Файл слишком маленький. Минимальный размер: 250 КБ. Ваш файл: ${(file.size / 1024).toFixed(0)} КБ`);
+                photoInput.value = '';
+                filePreview.innerHTML = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Validate image height (min 2000px)
+                    if (img.height < 2000) {
+                        alert(`❌ Высота фото слишком маленькая. Минимум: 2000px. Ваше фото: ${img.height}px`);
+                        photoInput.value = '';
+                        filePreview.innerHTML = '';
+                        return;
+                    }
+
+                    // If validation passed, show preview
+                    filePreview.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview">
+                        <p style="margin-top: 10px; color: var(--color-text-muted);">
+                            ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} МБ)<br>
+                            Размер: ${img.width}×${img.height}px
+                        </p>
+                    `;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function previewFile(file) {
+            validateAndPreviewFiles([file]);
+        }
+
+        // Submit form
+        document.getElementById('submit-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            
+            // Collect all photos
+            const photos = Array.from(filePreview.querySelectorAll('img')).map(img => img.src);
+            
+            // Check if user with this email already exists
+            let existingUser = submissions.find(s => s.email === email);
+
+            if (existingUser) {
+                // Update existing user's photo and info
+                existingUser.name = document.getElementById('name').value;
+                existingUser.district = document.getElementById('district').value;
+                existingUser.phone = document.getElementById('phone').value;
+                existingUser.comment = document.getElementById('comment').value;
+                existingUser.photos = photos;
+                existingUser.status = 'pending';
+                existingUser.adminComment = '';
+                existingUser.updatedAt = new Date().toLocaleString('ru-RU');
+            } else {
+                // Create new submission
+                const formData = {
+                    id: Date.now(),
+                    name: document.getElementById('name').value,
+                    district: document.getElementById('district').value,
+                    email: document.getElementById('email').value,
+                    phone: document.getElementById('phone').value,
+                    comment: document.getElementById('comment').value,
+                    photos: photos,
+                    originals: [],
+                    status: 'pending',
+                    adminComment: '',
+                    createdAt: new Date().toLocaleString('ru-RU')
+                };
+                submissions.push(formData);
+            }
+
+            // Show success message
+            const form = document.getElementById('submit-form');
+            const submissionId = existingUser ? existingUser.id : submissions[submissions.length - 1].id;
+            form.innerHTML = `
+                <div class="success-message">
+                    <h3>✅ Фото успешно отправлено!</h3>
+                    <p style="margin-top: 10px;">Статус: <strong>На проверке</strong></p>
+                    <p>ID заявки: <strong>${submissionId}</strong></p>
+                    <p style="margin-top: 15px;">Проверить статус можно во вкладке "Проверить статус"</p>
+                    <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: white; color: var(--color-success); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        Отправить ещё
+                    </button>
+                </div>
+            `;
+        });
+
+        // Check status form
+        document.getElementById('check-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('check-email').value;
+            const userSubmissions = submissions.filter(s => s.email === email);
+
+            const resultDiv = document.getElementById('status-result');
+
+            if (userSubmissions.length === 0) {
+                resultDiv.innerHTML = `
+                    <div class="empty-state">
+                        <p>Заявки с таким email не найдены</p>
+                    </div>
+                `;
+                return;
+            }
+
+            resultDiv.innerHTML = userSubmissions.map(sub => `
+                <div class="submission-card">
+                    ${sub.photos ? sub.photos.map(photo => `<img src="${photo}" alt="Photo">`).join('') : `<img src="${sub.photo}" alt="Photo">`}
+                    <div class="submission-info">
+                        <strong>ID:</strong> ${sub.id}<br>
+                        <strong>Дата:</strong> ${sub.createdAt}
+                    </div>
+                    <span class="status-badge status-${sub.status}">
+                        ${sub.status === 'pending' ? '⏳ На проверке' : sub.status === 'approved' ? '✅ Одобрено' : '❌ Запросить новое фото'}
+                    </span>
+                    ${sub.adminComment ? `<p style="margin-top: 10px; padding: 10px; background: var(--color-bg-muted); border-radius: 6px; font-size: 14px;"><strong>Комментарий:</strong> ${sub.adminComment}</p>` : ''}
+                    
+                    ${sub.status === 'approved' && (!sub.originals || sub.originals.length === 0) ? `
+                        <div style="margin-top: 15px; padding: 15px; background: var(--color-success); color: white; border-radius: 8px;">
+                            <strong>✅ Фото одобрено!</strong>
+                            <p style="margin-top: 10px; font-size: 14px;">Теперь вы можете загрузить оригиналы (PSD, RAW и др.)</p>
+                            <div style="margin-top: 10px;">
+                                <input type="file" id="upload-originals-${sub.id}" multiple style="display: none;">
+                                <button onclick="document.getElementById('upload-originals-${sub.id}').click()" style="padding: 8px 16px; background: white; color: var(--color-success); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                                    📦 Загрузить оригиналы
+                                </button>
+                            </div>
+                            <div id="originals-preview-${sub.id}" style="margin-top: 10px;"></div>
+                        </div>
+                    ` : ''}
+                    
+                    ${sub.originals && sub.originals.length > 0 ? `
+                        <div style="margin-top: 10px; padding: 10px; background: var(--color-bg-muted); border-radius: 6px;">
+                            <strong style="color: var(--color-primary);">📦 Оригиналы загружены:</strong><br>
+                            ${sub.originals.map(orig => `
+                                <div style="margin-top: 5px; font-size: 14px;">
+                                    📄 ${orig.name} (${(orig.size / 1024 / 1024).toFixed(2)} МБ)
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+            
+            // Add event listeners for originals upload in user status check
+            userSubmissions.forEach(sub => {
+                if (sub.status === 'approved' && (!sub.originals || sub.originals.length === 0)) {
+                    const uploadInput = document.getElementById(`upload-originals-${sub.id}`);
+                    if (uploadInput) {
+                        uploadInput.addEventListener('change', (e) => {
+                            if (e.target.files.length) {
+                                uploadOriginalsForSubmission(sub.id, e.target.files);
+                            }
+                        });
+                    }
+                }
+            });
+        });
+
+        // Admin panel filters
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderAdminList();
+            });
+        });
+
+        function renderAdminList() {
+            const adminList = document.getElementById('admin-list');
+            
+            let filtered = submissions;
+            if (currentFilter !== 'all') {
+                filtered = submissions.filter(s => s.status === currentFilter);
+            }
+
+            if (filtered.length === 0) {
+                adminList.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                        <h3>Нет заявок</h3>
+                        <p>Заявки с выбранным статусом не найдены</p>
+                    </div>
+                `;
+                return;
+            }
+
+            adminList.innerHTML = filtered.map(sub => `
+                <div class="submission-card">
+                    ${sub.photos ? sub.photos.map(photo => `<img src="${photo}" alt="Photo" style="margin-bottom: 10px;">`).join('') : `<img src="${sub.photo}" alt="Photo">`}
+                    <div class="submission-info">
+                        <strong>Имя:</strong> ${sub.name}<br>
+                        <strong>Район:</strong> ${sub.district}<br>
+                        <strong>Email:</strong> ${sub.email}<br>
+                        ${sub.phone ? `<strong>Телефон:</strong> ${sub.phone}<br>` : ''}
+                        <strong>Дата:</strong> ${sub.createdAt}<br>
+                        ${sub.comment ? `<strong>Комментарий:</strong> ${sub.comment}<br>` : ''}
+                        ${sub.originals && sub.originals.length > 0 ? `<strong>Оригиналы:</strong> ${sub.originals.length} файл(ов)<br>` : ''}
+                    </div>
+                    ${sub.originals && sub.originals.length > 0 ? `
+                        <div style="margin-top: 10px; padding: 10px; background: var(--color-bg-muted); border-radius: 6px;">
+                            <strong style="color: var(--color-primary);">📦 Оригиналы (${sub.originals.length}):</strong><br>
+                            ${sub.originals.map((orig, idx) => `
+                                <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 14px;">📄 ${orig.name} (${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
+                                    <a href="${orig.data}" download="${orig.name}" style="padding: 4px 8px; background: var(--color-primary); color: white; border-radius: 4px; font-size: 12px; text-decoration: none;">⬇ Скачать</a>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    <span class="status-badge status-${sub.status}">
+                        ${sub.status === 'pending' ? '⏳ На проверке' : sub.status === 'approved' ? '✅ Одобрено' : '❌ Отклонено'}
+                    </span>
+
+                    <div class="admin-controls">
+                        <button class="btn-approve" onclick="changeStatus(${sub.id}, 'approved')">✅ Одобрить</button>
+                        <button class="btn-reject" onclick="changeStatus(${sub.id}, 'rejected')">❌ Отклонить</button>
+                    </div>
+
+                    <div class="comment-section">
+                        <textarea id="comment-${sub.id}" placeholder="Комментарий для пользователя...">${sub.adminComment || ''}</textarea>
+                        <button onclick="saveComment(${sub.id})" style="width: 100%; margin-top: 5px; padding: 8px; background: var(--color-bg-muted); color: var(--color-text-primary); border: none; border-radius: 6px; cursor: pointer;">
+                            Сохранить комментарий
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function changeStatus(id, newStatus) {
+            const submission = submissions.find(s => s.id === id);
+            if (submission) {
+                submission.status = newStatus;
+                renderAdminList();
+            }
+        }
+
+        function saveComment(id) {
+            const submission = submissions.find(s => s.id === id);
+            const commentText = document.getElementById(`comment-${id}`).value;
+            if (submission) {
+                submission.adminComment = commentText;
+                alert('Комментарий сохранён ✅');
+            }
+        }
+
+        function uploadOriginalsForSubmission(submissionId, files) {
+            const submission = submissions.find(s => s.id === submissionId);
+            if (!submission) return;
+
+            const originalsFiles = [];
+            let filesProcessed = 0;
+
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    originalsFiles.push({
+                        name: file.name,
+                        size: file.size,
+                        data: e.target.result
+                    });
+                    filesProcessed++;
+
+                    if (filesProcessed === files.length) {
+                        submission.originals = originalsFiles;
+                        alert(`✅ Загружено ${originalsFiles.length} файл(ов) оригиналов`);
+                        
+                        // Refresh status display
+                        document.getElementById('check-form').dispatchEvent(new Event('submit', { cancelable: true }));
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // Show preview
+            const previewDiv = document.getElementById(`originals-preview-${submissionId}`);
+            if (previewDiv) {
+                previewDiv.innerHTML = Array.from(files).map(file => `
+                    <div style="margin-top: 5px; padding: 5px; background: rgba(255,255,255,0.2); border-radius: 4px; font-size: 12px;">
+                        📄 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} МБ)
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Initial render
+        renderAdminList();
+    </script>
+</body>
+</html>
+
