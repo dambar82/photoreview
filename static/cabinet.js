@@ -76,10 +76,7 @@ function applyAdminViewMode(user) {
         const who = (user && user.name ? user.name.trim() : "") || (user && user.email ? user.email : "");
         photosTitle.textContent = who ? `Фото /${who}/` : "Фото пользователя";
     }
-    setProfilePanelOpen(true);
-    if (profileToggleBtn) {
-        profileToggleBtn.textContent = "Данные пользователя";
-    }
+    setProfilePanelOpen(false);
 }
 
 function readFileAsDataUrl(file) {
@@ -191,11 +188,6 @@ document.addEventListener("keydown", (e) => {
 });
 
 profileToggleBtn?.addEventListener("click", () => {
-    if (isAdminView) {
-        setProfilePanelOpen(true);
-        if (profileToggleBtn) profileToggleBtn.textContent = "Данные пользователя";
-        return;
-    }
     setProfilePanelOpen(!isProfileOpen);
 });
 
@@ -239,7 +231,7 @@ function renderPhotos(user) {
     }
 
     photosList.innerHTML = photos.map((photo) => `
-        <div class="submission-card">
+        <div class="submission-card user-photo-card">
             <img src="${photo.url}" alt="Photo" class="admin-photo-thumb" onclick="window.openPhotoModal('${photo.url}')">
             <div class="submission-info">
                 <strong>Файл:</strong> ${escapeHtml(photo.name)}<br>
@@ -254,28 +246,27 @@ function renderPhotos(user) {
                             <button type="button" class="btn-mini btn-mini-primary" onclick="document.getElementById('upload-originals-photo-${photo.id}').click()">
                                 Загрузить оригинал
                             </button>
-                        ` : `
-                            <button type="button" class="btn-mini btn-mini-danger" onclick="deletePhotoOriginals(${photo.id})">
-                                Удалить оригинал
-                            </button>
-                        `}
+                        ` : ""}
                     ` : ""}
-                    <button type="button" class="btn-mini btn-mini-muted" onclick="deleteUploadedPhoto(${photo.id})">
-                        Удалить фото
-                    </button>
                 </div>
                 <div class="photo-action-note">Удаление фото удаляет и его оригиналы.</div>
                 ${photo.originals && photo.originals.length > 0 ? `
                     <div class="originals-list">
-                        <div class="originals-title">Оригиналы:</div>
+                        <div class="originals-title">Оригинал:</div>
                         ${photo.originals.map((orig) => `
                             <div class="originals-item">
                                 <a href="${orig.url}" target="_blank" rel="noopener" class="original-link">${escapeHtml(orig.name)}</a>
                                 <span class="original-size">(${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
+                                <button type="button" class="orig-delete-x" onclick="deleteOriginalFile(${orig.id})" title="Удалить оригинал">✕</button>
                             </div>
                         `).join("")}
                     </div>
                 ` : ""}
+                <div class="photo-delete-row">
+                    <button type="button" class="btn-mini btn-mini-muted" onclick="deleteUploadedPhoto(${photo.id})">
+                        Удалить фото
+                    </button>
+                </div>
             </div>
         </div>
     `).join("");
@@ -429,6 +420,21 @@ async function deletePhotoOriginals(photoId) {
 }
 
 window.deletePhotoOriginals = deletePhotoOriginals;
+
+async function deleteOriginalFile(originalId) {
+    try {
+        const result = await api(`/api/originals/${originalId}`, {
+            method: "DELETE",
+        });
+        currentUser = result.submission;
+        renderPhotos(currentUser);
+        alert("✅ Оригинал удален");
+    } catch (err) {
+        alert("❌ " + err.message);
+    }
+}
+
+window.deleteOriginalFile = deleteOriginalFile;
 
 async function deleteUploadedPhoto(photoId) {
     if (!confirm("Удалить это фото? Оригиналы, привязанные к фото, тоже будут удалены.")) {

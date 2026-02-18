@@ -726,6 +726,54 @@ def delete_originals_for_photo(photo_id: int):
     return jsonify({"ok": True, "submission": payload})
 
 
+@app.delete("/api/originals/<int:original_id>")
+def delete_single_original(original_id: int):
+    with get_db_connection() as conn:
+        original = conn.execute(
+            """
+            SELECT id, submission_id, is_original, parent_photo_id, file_path
+            FROM files
+            WHERE id = ?
+            """,
+            (original_id,),
+        ).fetchone()
+        if not original:
+            return jsonify({"error": "Оригинал не найден"}), 404
+        if original["is_original"] != 1:
+            return jsonify({"error": "Файл не является оригиналом"}), 400
+
+        try:
+            file_name = Path(str(original["file_path"]).replace("\\", "/")).name
+            (UPLOADS_DIR / file_name).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        conn.execute("DELETE FROM files WHERE id = ?", (original_id,))
+
+        submission_row = conn.execute(
+            "SELECT email, name, district FROM submissions WHERE id = ?",
+            (original["submission_id"],),
+        ).fetchone()
+        if submission_row:
+            log_activity(
+                conn,
+                actor_email=submission_row["email"],
+                actor_name=submission_row["name"] or "",
+                district=submission_row["district"] or "",
+                action_type="photo_original_deleted",
+                details=f"Удалил оригинал #{original_id} для фото #{original['parent_photo_id'] or 0}",
+            )
+        conn.commit()
+
+        submission = conn.execute(
+            "SELECT * FROM submissions WHERE id = ?",
+            (original["submission_id"],),
+        ).fetchone()
+        payload = build_submission_payload(conn, submission)
+
+    return jsonify({"ok": True, "submission": payload})
+
+
 @app.delete("/api/photos/<int:photo_id>")
 def delete_uploaded_photo(photo_id: int):
     with get_db_connection() as conn:

@@ -405,7 +405,7 @@ function renderUserCards(submissions) {
     return submissions.map((sub) => `
         <div class="submission-card">
             ${(sub.photos || []).map((photo) => `
-                <div style="margin-bottom: 10px;">
+                <div class="user-photo-card">
                     <img src="${photo.url}" alt="Photo">
                     <div style="font-size: 13px; margin-top: 6px; color: var(--color-text-secondary);">
                         <span class="status-badge status-${photo.status || "pending"}">${photoStatusLabel(photo.status)}</span>
@@ -418,28 +418,27 @@ function renderUserCards(submissions) {
                                     <button type="button" class="btn-mini btn-mini-primary" onclick="document.getElementById('upload-originals-photo-${photo.id}').click()">
                                         Загрузить оригинал
                                     </button>
-                                ` : `
-                                    <button type="button" class="btn-mini btn-mini-danger" onclick="deletePhotoOriginals(${photo.id})">
-                                        Удалить оригинал
-                                    </button>
-                                `}
+                                ` : ""}
                             ` : ""}
-                            <button type="button" class="btn-mini btn-mini-muted" onclick="deleteUploadedPhoto(${photo.id})">
-                                Удалить фото
-                            </button>
                         </div>
                         <div class="photo-action-note">Удаление фото удаляет и его оригиналы.</div>
                         ${photo.originals && photo.originals.length > 0 ? `
                             <div class="originals-list">
-                                <div class="originals-title">Оригиналы:</div>
+                                <div class="originals-title">Оригинал:</div>
                                 ${photo.originals.map((orig) => `
                                     <div class="originals-item">
                                         <a href="${orig.url}" target="_blank" rel="noopener" class="original-link">${escapeHtml(orig.name)}</a>
                                         <span class="original-size">(${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
+                                        <button type="button" class="orig-delete-x" onclick="deleteOriginalFile(${orig.id})" title="Удалить оригинал">✕</button>
                                     </div>
                                 `).join("")}
                             </div>
                         ` : ""}
+                        <div class="photo-delete-row">
+                            <button type="button" class="btn-mini btn-mini-muted" onclick="deleteUploadedPhoto(${photo.id})">
+                                Удалить фото
+                            </button>
+                        </div>
                     </div>
                 </div>
             `).join("")}
@@ -557,6 +556,20 @@ async function deletePhotoOriginals(photoId) {
 
 window.deletePhotoOriginals = deletePhotoOriginals;
 
+async function deleteOriginalFile(originalId) {
+    try {
+        await api(`/api/originals/${originalId}`, {
+            method: "DELETE",
+        });
+        alert("✅ Оригинал удален");
+        document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
+    } catch (err) {
+        alert("❌ " + err.message);
+    }
+}
+
+window.deleteOriginalFile = deleteOriginalFile;
+
 async function deleteUploadedPhoto(photoId) {
     if (!confirm("Удалить это фото? Оригиналы, привязанные к фото, тоже будут удалены.")) {
         return;
@@ -656,7 +669,7 @@ async function renderAdminList() {
 
                 ${sub.originals && sub.originals.length > 0 ? `
                     <div style="margin-top: 10px; padding: 10px; background: var(--color-bg-muted); border-radius: 6px;">
-                        <strong style="color: var(--color-primary);">Оригиналы (${sub.originals.length}):</strong><br>
+                        <strong style="color: var(--color-primary);">Оригинал (${sub.originals.length}):</strong><br>
                         ${sub.originals.map((orig) => `
                             <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center; gap: 6px;">
                                 <span style="font-size: 14px;">${escapeHtml(orig.name)} (${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
