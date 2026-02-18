@@ -5,7 +5,7 @@ services:
     env_file:
       - .env
     ports:
-      - "127.0.0.1:8000:5000"
+      - "127.0.0.1:18000:5000"
     environment:
       PHOTO_REVIEW_DB_PATH: "/data/photoreview.db"
       PHOTO_REVIEW_UPLOADS_DIR: "/data/uploads"
