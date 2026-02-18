@@ -404,13 +404,13 @@ async function renderActivityList() {
 function renderUserCards(submissions) {
     return submissions.map((sub) => `
         <div class="submission-card">
+            <div class="user-photo-grid">
             ${(sub.photos || []).map((photo) => `
                 <div class="user-photo-card">
                     <img src="${photo.url}" alt="Photo">
                     <div style="font-size: 13px; margin-top: 6px; color: var(--color-text-secondary);">
                         <span class="status-badge status-${photo.status || "pending"}">${photoStatusLabel(photo.status)}</span>
                         ${photo.comment ? `<div style="margin-top: 6px;"><strong>Комментарий:</strong> ${escapeHtml(photo.comment)}</div>` : ""}
-                        <div class="photo-actions-title">Действия:</div>
                         <div class="photo-action-group">
                             ${photo.status === "approved" ? `
                                 ${(!photo.originals || photo.originals.length === 0) ? `
@@ -421,7 +421,6 @@ function renderUserCards(submissions) {
                                 ` : ""}
                             ` : ""}
                         </div>
-                        <div class="photo-action-note">Удаление фото удаляет и его оригиналы.</div>
                         ${photo.originals && photo.originals.length > 0 ? `
                             <div class="originals-list">
                                 <div class="originals-title">Оригинал:</div>
@@ -442,6 +441,7 @@ function renderUserCards(submissions) {
                     </div>
                 </div>
             `).join("")}
+            </div>
             <div class="submission-info">
                 <strong>ID:</strong> ${sub.id}<br>
                 <strong>Дата:</strong> ${sub.createdAt}

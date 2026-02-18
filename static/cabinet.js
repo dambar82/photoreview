@@ -238,7 +238,6 @@ function renderPhotos(user) {
                 <strong>Статус:</strong>
                 <span class="status-badge status-${photo.status || "pending"}">${photoStatusLabel(photo.status)}</span>
                 ${photo.comment ? `<br><strong>Комментарий:</strong> ${escapeHtml(photo.comment)}` : ""}
-                <div class="photo-actions-title">Действия:</div>
                 <div class="photo-action-group">
                     ${photo.status === "approved" ? `
                         ${(!photo.originals || photo.originals.length === 0) ? `
@@ -249,7 +248,6 @@ function renderPhotos(user) {
                         ` : ""}
                     ` : ""}
                 </div>
-                <div class="photo-action-note">Удаление фото удаляет и его оригиналы.</div>
                 ${photo.originals && photo.originals.length > 0 ? `
                     <div class="originals-list">
                         <div class="originals-title">Оригинал:</div>
