@@ -9,6 +9,15 @@ const modalClose = document.getElementById("photo-modal-close");
 const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const zoomResetBtn = document.getElementById("zoom-reset-btn");
+const activityDayFilter = document.getElementById("activity-day-filter");
+const activityDistrictFilter = document.getElementById("activity-district-filter");
+const activityApplyBtn = document.getElementById("activity-apply-btn");
+const activityResetBtn = document.getElementById("activity-reset-btn");
+const activityList = document.getElementById("activity-list");
+const adminSubmissionsSection = document.getElementById("admin-submissions-section");
+const adminActivitySection = document.getElementById("admin-activity-section");
+const adminSectionSubmissionsBtn = document.getElementById("admin-section-submissions-btn");
+const adminSectionActivityBtn = document.getElementById("admin-section-activity-btn");
 
 function escapeHtml(text) {
     const div = document.createElement("div");
@@ -74,6 +83,25 @@ document.addEventListener("keydown", (e) => {
 
 window.openPhotoModal = openPhotoModal;
 
+async function setAdminSection(section) {
+    const showSubmissions = section === "submissions";
+    if (adminSubmissionsSection) {
+        adminSubmissionsSection.style.display = showSubmissions ? "block" : "none";
+    }
+    if (adminActivitySection) {
+        adminActivitySection.style.display = showSubmissions ? "none" : "block";
+    }
+    if (adminSectionSubmissionsBtn) {
+        adminSectionSubmissionsBtn.classList.toggle("active", showSubmissions);
+    }
+    if (adminSectionActivityBtn) {
+        adminSectionActivityBtn.classList.toggle("active", !showSubmissions);
+    }
+    if (!showSubmissions) {
+        await renderActivityList();
+    }
+}
+
 async function checkAdminSession() {
     const data = await api("/api/admin/session");
     return Boolean(data.isAdmin);
@@ -118,6 +146,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
         document.getElementById(`${tabName}-tab`).classList.add("active");
 
         if (tabName === "admin") {
+            await setAdminSection("submissions");
             await renderAdminList();
         }
     });
@@ -126,6 +155,9 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 const fileUpload = document.getElementById("file-upload");
 const photoInput = document.getElementById("photo");
 const filePreview = document.getElementById("file-preview");
+const submitEmailInput = document.getElementById("email");
+const existingCabinetBtn = document.getElementById("existing-cabinet-btn");
+let emailCheckTimer = null;
 
 fileUpload.addEventListener("click", () => photoInput.click());
 
@@ -151,6 +183,50 @@ photoInput.addEventListener("change", (e) => {
     if (e.target.files.length) {
         validateAndPreviewFiles(e.target.files);
     }
+});
+
+function hideExistingCabinetButton() {
+    if (!existingCabinetBtn) return;
+    existingCabinetBtn.style.display = "none";
+    existingCabinetBtn.onclick = null;
+}
+
+function showExistingCabinetButton(email) {
+    if (!existingCabinetBtn) return;
+    existingCabinetBtn.style.display = "block";
+    existingCabinetBtn.onclick = () => {
+        window.location.href = `/user/${encodeURIComponent(email)}`;
+    };
+}
+
+async function checkExistingCabinetByEmail() {
+    if (!submitEmailInput) return;
+    const email = submitEmailInput.value.trim().toLowerCase();
+    if (!email || !submitEmailInput.checkValidity()) {
+        hideExistingCabinetButton();
+        return;
+    }
+
+    try {
+        await api(`/api/users/${encodeURIComponent(email)}`);
+        showExistingCabinetButton(email);
+    } catch (err) {
+        hideExistingCabinetButton();
+    }
+}
+
+submitEmailInput?.addEventListener("input", () => {
+    hideExistingCabinetButton();
+    if (emailCheckTimer) {
+        clearTimeout(emailCheckTimer);
+    }
+    emailCheckTimer = setTimeout(() => {
+        checkExistingCabinetByEmail();
+    }, 350);
+});
+
+submitEmailInput?.addEventListener("blur", () => {
+    checkExistingCabinetByEmail();
 });
 
 function validateAndPreviewFiles(files) {
@@ -237,6 +313,94 @@ function photoStatusLabel(status) {
     return "⏳ На проверке";
 }
 
+function activityLabel(actionType) {
+    const labels = {
+        submission_created: "Создание заявки",
+        submission_updated: "Обновление заявки",
+        profile_created: "Создание профиля",
+        profile_updated: "Редактирование профиля",
+        photos_uploaded: "Загрузка фото",
+        photo_deleted: "Удаление фото",
+        photo_original_uploaded: "Загрузка оригинала",
+        photo_original_deleted: "Удаление оригинала",
+    };
+    return labels[actionType] || actionType;
+}
+
+function fillActivityDistricts(districts) {
+    if (!activityDistrictFilter) return;
+    const selected = activityDistrictFilter.value;
+    activityDistrictFilter.innerHTML = `<option value="">Все районы</option>`;
+    (districts || []).forEach((district) => {
+        const option = document.createElement("option");
+        option.value = district;
+        option.textContent = district;
+        activityDistrictFilter.appendChild(option);
+    });
+    activityDistrictFilter.value = selected || "";
+}
+
+function renderActivityUserCell(item) {
+    const profileUrl = item.profileUrl || "";
+    const safeName = escapeHtml(item.name || "");
+    const safeEmail = escapeHtml(item.email || "");
+    if (!profileUrl) {
+        return `${safeName}<br><small>${safeEmail}</small>`;
+    }
+    return `
+        <a class="activity-link" href="${profileUrl}">${safeName || safeEmail}</a><br>
+        <a class="activity-link-secondary" href="${profileUrl}">${safeEmail}</a>
+    `;
+}
+
+function renderActivityDetailsCell(item) {
+    const safeDetails = escapeHtml(item.details || "");
+    if (!item.photoUrl) {
+        return safeDetails;
+    }
+    return `
+        ${safeDetails}
+        <div class="activity-detail-links">
+            <a class="activity-link" href="${item.photoUrl}" target="_blank" rel="noopener">Открыть фото</a>
+        </div>
+    `;
+}
+
+async function renderActivityList() {
+    if (!activityList) return;
+    try {
+        const params = new URLSearchParams();
+        if (activityDayFilter?.value) {
+            params.set("day", activityDayFilter.value);
+        }
+        if (activityDistrictFilter?.value) {
+            params.set("district", activityDistrictFilter.value);
+        }
+
+        const query = params.toString() ? `?${params.toString()}` : "";
+        const data = await api(`/api/admin/activities${query}`);
+        fillActivityDistricts(data.districts || []);
+
+        const items = data.items || [];
+        if (!items.length) {
+            activityList.innerHTML = `<tr><td colspan="5">Нет активности по выбранным фильтрам</td></tr>`;
+            return;
+        }
+
+        activityList.innerHTML = items.map((item) => `
+            <tr>
+                <td>${escapeHtml(item.createdAt || "")}</td>
+                <td>${renderActivityUserCell(item)}</td>
+                <td>${escapeHtml(item.district || "")}</td>
+                <td>${escapeHtml(activityLabel(item.actionType))}</td>
+                <td>${renderActivityDetailsCell(item)}</td>
+            </tr>
+        `).join("");
+    } catch (err) {
+        activityList.innerHTML = `<tr><td colspan="5">${escapeHtml(err.message)}</td></tr>`;
+    }
+}
+
 function renderUserCards(submissions) {
     return submissions.map((sub) => `
         <div class="submission-card">
@@ -244,8 +408,38 @@ function renderUserCards(submissions) {
                 <div style="margin-bottom: 10px;">
                     <img src="${photo.url}" alt="Photo">
                     <div style="font-size: 13px; margin-top: 6px; color: var(--color-text-secondary);">
-                        ${photoStatusLabel(photo.status)}
-                        ${photo.comment ? `<br><strong>Комментарий:</strong> ${escapeHtml(photo.comment)}` : ""}
+                        <span class="status-badge status-${photo.status || "pending"}">${photoStatusLabel(photo.status)}</span>
+                        ${photo.comment ? `<div style="margin-top: 6px;"><strong>Комментарий:</strong> ${escapeHtml(photo.comment)}</div>` : ""}
+                        <div class="photo-actions-title">Действия:</div>
+                        <div class="photo-action-group">
+                            ${photo.status === "approved" ? `
+                                ${(!photo.originals || photo.originals.length === 0) ? `
+                                    <input type="file" id="upload-originals-photo-${photo.id}" data-photo-id="${photo.id}" multiple style="display: none;">
+                                    <button type="button" class="btn-mini btn-mini-primary" onclick="document.getElementById('upload-originals-photo-${photo.id}').click()">
+                                        Загрузить оригинал
+                                    </button>
+                                ` : `
+                                    <button type="button" class="btn-mini btn-mini-danger" onclick="deletePhotoOriginals(${photo.id})">
+                                        Удалить оригинал
+                                    </button>
+                                `}
+                            ` : ""}
+                            <button type="button" class="btn-mini btn-mini-muted" onclick="deleteUploadedPhoto(${photo.id})">
+                                Удалить фото
+                            </button>
+                        </div>
+                        <div class="photo-action-note">Удаление фото удаляет и его оригиналы.</div>
+                        ${photo.originals && photo.originals.length > 0 ? `
+                            <div class="originals-list">
+                                <div class="originals-title">Оригиналы:</div>
+                                ${photo.originals.map((orig) => `
+                                    <div class="originals-item">
+                                        <a href="${orig.url}" target="_blank" rel="noopener" class="original-link">${escapeHtml(orig.name)}</a>
+                                        <span class="original-size">(${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
+                                    </div>
+                                `).join("")}
+                            </div>
+                        ` : ""}
                     </div>
                 </div>
             `).join("")}
@@ -253,31 +447,6 @@ function renderUserCards(submissions) {
                 <strong>ID:</strong> ${sub.id}<br>
                 <strong>Дата:</strong> ${sub.createdAt}
             </div>
-            <span class="status-badge status-${sub.status}">${statusLabel(sub.status)}</span>
-
-            ${sub.status === "approved" && (!sub.originals || sub.originals.length === 0) ? `
-                <div style="margin-top: 15px; padding: 15px; background: var(--color-success); color: white; border-radius: 8px;">
-                    <strong>✅ Фото одобрено!</strong>
-                    <p style="margin-top: 10px; font-size: 14px;">Теперь вы можете загрузить оригиналы (PSD, RAW и др.)</p>
-                    <div style="margin-top: 10px;">
-                        <input type="file" id="upload-originals-${sub.id}" multiple style="display: none;">
-                        <button onclick="document.getElementById('upload-originals-${sub.id}').click()" style="padding: 8px 16px; background: white; color: var(--color-success); border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                            Загрузить оригиналы
-                        </button>
-                    </div>
-                </div>
-            ` : ""}
-
-            ${sub.originals && sub.originals.length > 0 ? `
-                <div style="margin-top: 10px; padding: 10px; background: var(--color-bg-muted); border-radius: 6px;">
-                    <strong style="color: var(--color-primary);">Оригиналы загружены:</strong><br>
-                    ${sub.originals.map((orig) => `
-                        <div style="margin-top: 5px; font-size: 14px;">
-                            <a href="${orig.url}" target="_blank" rel="noopener">${escapeHtml(orig.name)}</a> (${(orig.size / 1024 / 1024).toFixed(2)} МБ)
-                        </div>
-                    `).join("")}
-                </div>
-            ` : ""}
         </div>
     `).join("");
 }
@@ -306,36 +475,54 @@ document.getElementById("check-form").addEventListener("submit", async (e) => {
             window.location.href = `/user/${encodeURIComponent(email.trim().toLowerCase())}`;
         };
         submissions.forEach((sub) => {
-            if (sub.status === "approved" && (!sub.originals || sub.originals.length === 0)) {
-                const uploadInput = document.getElementById(`upload-originals-${sub.id}`);
-                if (uploadInput) {
-                    uploadInput.addEventListener("change", async (event) => {
-                        if (!event.target.files.length) return;
-                        const fd = new FormData();
-                        Array.from(event.target.files).forEach((file) => fd.append("originals", file));
-                        try {
-                            await api(`/api/submissions/${sub.id}/originals`, { method: "POST", body: fd });
-                            alert("✅ Оригиналы загружены");
-                            document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
-                        } catch (err) {
-                            alert("❌ " + err.message);
-                        }
-                    });
-                }
-            }
+            (sub.photos || []).forEach((photo) => {
+                if (photo.status !== "approved") return;
+                const uploadInput = document.getElementById(`upload-originals-photo-${photo.id}`);
+                if (!uploadInput) return;
+                uploadInput.addEventListener("change", async (event) => {
+                    if (!event.target.files.length) return;
+                    const fd = new FormData();
+                    Array.from(event.target.files).forEach((file) => fd.append("originals", file));
+                    try {
+                        await api(`/api/photos/${photo.id}/originals`, { method: "POST", body: fd });
+                        alert("✅ Оригиналы загружены");
+                        document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
+                    } catch (err) {
+                        alert("❌ " + err.message);
+                    }
+                });
+            });
         });
     } catch (err) {
         alert("❌ " + err.message);
     }
 });
 
-document.querySelectorAll(".filter-btn").forEach((btn) => {
+document.querySelectorAll(".filter-btn[data-filter]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-        document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".filter-btn[data-filter]").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         currentFilter = btn.dataset.filter;
         await renderAdminList();
     });
+});
+
+activityApplyBtn?.addEventListener("click", async () => {
+    await renderActivityList();
+});
+
+activityResetBtn?.addEventListener("click", async () => {
+    if (activityDayFilter) activityDayFilter.value = "";
+    if (activityDistrictFilter) activityDistrictFilter.value = "";
+    await renderActivityList();
+});
+
+adminSectionSubmissionsBtn?.addEventListener("click", async () => {
+    await setAdminSection("submissions");
+});
+
+adminSectionActivityBtn?.addEventListener("click", async () => {
+    await setAdminSection("activity");
 });
 
 async function reviewPhoto(fileId, status) {
@@ -356,15 +543,76 @@ async function reviewPhoto(fileId, status) {
 
 window.reviewPhoto = reviewPhoto;
 
+async function deletePhotoOriginals(photoId) {
+    try {
+        await api(`/api/photos/${photoId}/originals`, {
+            method: "DELETE",
+        });
+        alert("✅ Оригинал удален");
+        document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
+    } catch (err) {
+        alert("❌ " + err.message);
+    }
+}
+
+window.deletePhotoOriginals = deletePhotoOriginals;
+
+async function deleteUploadedPhoto(photoId) {
+    if (!confirm("Удалить это фото? Оригиналы, привязанные к фото, тоже будут удалены.")) {
+        return;
+    }
+    try {
+        await api(`/api/photos/${photoId}`, {
+            method: "DELETE",
+        });
+        alert("✅ Фото удалено");
+        document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
+    } catch (err) {
+        alert("❌ " + err.message);
+    }
+}
+
+window.deleteUploadedPhoto = deleteUploadedPhoto;
+
+async function savePhotoComment(fileId) {
+    const commentEl = document.getElementById(`photo-comment-${fileId}`);
+    const comment = commentEl ? commentEl.value : "";
+    try {
+        await api(`/api/admin/photos/${fileId}/comment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ comment }),
+        });
+        alert("Комментарий сохранен ✅");
+    } catch (err) {
+        alert("❌ " + err.message);
+    }
+}
+
+window.savePhotoComment = savePhotoComment;
+
 async function renderAdminList() {
     const adminList = document.getElementById("admin-list");
     try {
-        const submissions = await api(`/api/admin/submissions?status=${encodeURIComponent(currentFilter)}`);
+        const rawSubmissions = await api("/api/admin/submissions?status=all");
+        const submissions = (rawSubmissions || [])
+            .map((sub) => {
+                const photos = Array.isArray(sub.photos) ? sub.photos : [];
+                const visiblePhotos = currentFilter === "all"
+                    ? photos
+                    : photos.filter((photo) => (photo.status || "pending") === currentFilter);
+                return {
+                    ...sub,
+                    photos: visiblePhotos,
+                };
+            })
+            .filter((sub) => sub.photos.length > 0);
+
         if (!submissions.length) {
             adminList.innerHTML = `
                 <div class="empty-state" style="grid-column: 1/-1;">
-                    <h3>Нет заявок</h3>
-                    <p>Заявки с выбранным статусом не найдены</p>
+                    <h3>Нет фото</h3>
+                    <p>Фото с выбранным статусом не найдены</p>
                 </div>
             `;
             return;
@@ -391,6 +639,7 @@ async function renderAdminList() {
                             id="photo-comment-${photo.id}"
                             placeholder="Комментарий по этому фото"
                         >${escapeHtml(photo.comment || "")}</textarea>
+                        <button class="photo-save" type="button" onclick="savePhotoComment(${photo.id})">Сохранить комментарий</button>
                     </div>
                 `).join("")}
 
@@ -403,7 +652,7 @@ async function renderAdminList() {
                     ${sub.comment ? `<strong>Комментарий:</strong> ${escapeHtml(sub.comment)}<br>` : ""}
                 </div>
 
-                <span class="status-badge status-${sub.status}">${statusLabel(sub.status)}</span>
+                ${currentFilter === "all" ? `<span class="status-badge status-${sub.status}">${statusLabel(sub.status)}</span>` : ""}
 
                 ${sub.originals && sub.originals.length > 0 ? `
                     <div style="margin-top: 10px; padding: 10px; background: var(--color-bg-muted); border-radius: 6px;">

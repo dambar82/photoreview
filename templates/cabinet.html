@@ -10,6 +10,7 @@
 <div class="container">
     <header>
         <h1>Личный кабинет</h1>
+        <h2 id="admin-view-title" style="display:none; margin-top: 8px; color: var(--color-warning); font-size: 1.2rem;">Просмотр профиля пользователя (админ)</h2>
         <p style="color: var(--color-text-secondary);">Здесь вы видите статус фото, редактируете данные и загружаете новые файлы.</p>
     </header>
 
@@ -24,91 +25,107 @@
 
         <div id="cabinet-content" {% if not user_email %}style="display:none;"{% endif %}>
             <div class="cabinet-topbar">
+                <button id="profile-toggle-btn" type="button" class="cabinet-action-btn">Профиль пользователя</button>
+                {% if admin_view %}
+                <a href="{{ url_for('admin_page') }}" class="cabinet-action-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Вернуться в админку</a>
+                {% else %}
                 <button id="logout-btn" type="button" class="cabinet-logout-btn">Выйти</button>
+                {% endif %}
             </div>
-            <h2 style="margin-bottom: 16px; color: var(--color-primary);">Профиль пользователя</h2>
-            <form id="profile-form">
-                <div class="form-group">
-                    <label for="profile-email">Email</label>
-                    <input id="profile-email" type="email" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="profile-name">Имя *</label>
-                    <input id="profile-name" type="text" required>
-                </div>
-                <div class="form-group">
-                    <label for="profile-district">Район *</label>
-                    <select id="profile-district" required style="width: 100%; padding: 12px; background: var(--color-bg-base); color: var(--color-text-primary); border: 2px solid var(--color-border); border-radius: 8px; font-size: 16px;">
-                        <option value="">Выберите район</option>
-                        <option value="Агрызский">Агрызский</option>
-                        <option value="Азнакаевский">Азнакаевский</option>
-                        <option value="Аксубаевский">Аксубаевский</option>
-                        <option value="Актанышский">Актанышский</option>
-                        <option value="Алексеевский">Алексеевский</option>
-                        <option value="Алькеевский">Алькеевский</option>
-                        <option value="Альметьевский">Альметьевский</option>
-                        <option value="Апастовский">Апастовский</option>
-                        <option value="Арский">Арский</option>
-                        <option value="Атнинский">Атнинский</option>
-                        <option value="Бавлинский">Бавлинский</option>
-                        <option value="Балтасинский">Балтасинский</option>
-                        <option value="Бугульминский">Бугульминский</option>
-                        <option value="Буинский">Буинский</option>
-                        <option value="Верхнеуслонский">Верхнеуслонский</option>
-                        <option value="Высокогорский">Высокогорский</option>
-                        <option value="Дрожжановский">Дрожжановский</option>
-                        <option value="Елабужский">Елабужский</option>
-                        <option value="Заинский">Заинский</option>
-                        <option value="Зеленодольский">Зеленодольский</option>
-                        <option value="Кайбицкий">Кайбицкий</option>
-                        <option value="Камско-Устьинский">Камско-Устьинский</option>
-                        <option value="Кукморский">Кукморский</option>
-                        <option value="Лаишевский">Лаишевский</option>
-                        <option value="Лениногорский">Лениногорский</option>
-                        <option value="Мамадышский">Мамадышский</option>
-                        <option value="Менделеевский">Менделеевский</option>
-                        <option value="Мензелинский">Мензелинский</option>
-                        <option value="Муслюмовский">Муслюмовский</option>
-                        <option value="Нижнекамский">Нижнекамский</option>
-                        <option value="Новошешминский">Новошешминский</option>
-                        <option value="Нурлатский">Нурлатский</option>
-                        <option value="Пестречинский">Пестречинский</option>
-                        <option value="Рыбно-Слободский">Рыбно-Слободский</option>
-                        <option value="Сабинский">Сабинский</option>
-                        <option value="Сармановский">Сармановский</option>
-                        <option value="Спасский">Спасский</option>
-                        <option value="Тетюшский">Тетюшский</option>
-                        <option value="Тукаевский">Тукаевский</option>
-                        <option value="Тюлячинский">Тюлячинский</option>
-                        <option value="Черемшанский">Черемшанский</option>
-                        <option value="Чистопольский">Чистопольский</option>
-                        <option value="Ютазинский">Ютазинский</option>
-                        <option value="г. Казань">г. Казань</option>
-                        <option value="г. Набережные Челны">г. Набережные Челны</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="profile-phone">Телефон</label>
-                    <input id="profile-phone" type="text">
-                </div>
-                <div class="form-group">
-                    <label for="profile-comment">Комментарий</label>
-                    <textarea id="profile-comment"></textarea>
-                </div>
-                <button type="submit" class="btn">Сохранить данные</button>
-            </form>
+            <div id="profile-panel" class="cabinet-profile-panel" style="display: none;">
+                <h3 style="margin-bottom: 16px; color: var(--color-primary); font-size: 1.4rem;">Профиль пользователя</h3>
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label for="profile-email">Email</label>
+                        <input id="profile-email" type="email" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-name">Имя *</label>
+                        <input id="profile-name" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-district">Район *</label>
+                        <select id="profile-district" required style="width: 100%; padding: 12px; background: var(--color-bg-base); color: var(--color-text-primary); border: 2px solid var(--color-border); border-radius: 8px; font-size: 16px;">
+                            <option value="">Выберите район</option>
+                            <option value="Агрызский">Агрызский</option>
+                            <option value="Азнакаевский">Азнакаевский</option>
+                            <option value="Аксубаевский">Аксубаевский</option>
+                            <option value="Актанышский">Актанышский</option>
+                            <option value="Алексеевский">Алексеевский</option>
+                            <option value="Алькеевский">Алькеевский</option>
+                            <option value="Альметьевский">Альметьевский</option>
+                            <option value="Апастовский">Апастовский</option>
+                            <option value="Арский">Арский</option>
+                            <option value="Атнинский">Атнинский</option>
+                            <option value="Бавлинский">Бавлинский</option>
+                            <option value="Балтасинский">Балтасинский</option>
+                            <option value="Бугульминский">Бугульминский</option>
+                            <option value="Буинский">Буинский</option>
+                            <option value="Верхнеуслонский">Верхнеуслонский</option>
+                            <option value="Высокогорский">Высокогорский</option>
+                            <option value="Дрожжановский">Дрожжановский</option>
+                            <option value="Елабужский">Елабужский</option>
+                            <option value="Заинский">Заинский</option>
+                            <option value="Зеленодольский">Зеленодольский</option>
+                            <option value="Кайбицкий">Кайбицкий</option>
+                            <option value="Камско-Устьинский">Камско-Устьинский</option>
+                            <option value="Кукморский">Кукморский</option>
+                            <option value="Лаишевский">Лаишевский</option>
+                            <option value="Лениногорский">Лениногорский</option>
+                            <option value="Мамадышский">Мамадышский</option>
+                            <option value="Менделеевский">Менделеевский</option>
+                            <option value="Мензелинский">Мензелинский</option>
+                            <option value="Муслюмовский">Муслюмовский</option>
+                            <option value="Нижнекамский">Нижнекамский</option>
+                            <option value="Новошешминский">Новошешминский</option>
+                            <option value="Нурлатский">Нурлатский</option>
+                            <option value="Пестречинский">Пестречинский</option>
+                            <option value="Рыбно-Слободский">Рыбно-Слободский</option>
+                            <option value="Сабинский">Сабинский</option>
+                            <option value="Сармановский">Сармановский</option>
+                            <option value="Спасский">Спасский</option>
+                            <option value="Тетюшский">Тетюшский</option>
+                            <option value="Тукаевский">Тукаевский</option>
+                            <option value="Тюлячинский">Тюлячинский</option>
+                            <option value="Черемшанский">Черемшанский</option>
+                            <option value="Чистопольский">Чистопольский</option>
+                            <option value="Ютазинский">Ютазинский</option>
+                            <option value="г. Казань">г. Казань</option>
+                            <option value="г. Набережные Челны">г. Набережные Челны</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-phone">Телефон</label>
+                        <input id="profile-phone" type="text">
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-comment">Комментарий</label>
+                        <textarea id="profile-comment"></textarea>
+                    </div>
+                    <button type="submit" class="btn">Сохранить данные</button>
+                </form>
+            </div>
 
+            <h2 id="photos-title" style="margin: 24px 0 16px; color: var(--color-primary);">Мои фото</h2>
+            <div id="photos-list" class="submissions-grid"></div>
+
+            <div id="upload-section">
             <h2 style="margin: 24px 0 16px; color: var(--color-primary);">Загрузка новых фото</h2>
             <form id="upload-form">
                 <div class="form-group">
-                    <input id="cabinet-photos" type="file" multiple accept="image/*" required>
-                    <p class="hint">Минимум 2000px по ширине и 250 КБ.</p>
+                    <label>Фотографии для загрузки *</label>
+                    <div class="file-upload" id="cabinet-file-upload">
+                        <input type="file" id="cabinet-photo-input" accept="image/*" required multiple>
+                        <p style="color: var(--color-text-muted);">
+                            📁 Нажмите или перетащите фото (можно несколько)<br>
+                            <small>Требования: мин. 2000px по ширине, мин. 250 КБ<br>JPG, PNG, WEBP</small>
+                        </p>
+                    </div>
+                    <div class="file-preview" id="cabinet-file-preview"></div>
                 </div>
                 <button type="submit" class="btn">Загрузить фото</button>
             </form>
-
-            <h2 style="margin: 24px 0 16px; color: var(--color-primary);">Мои фото и статусы</h2>
-            <div id="photos-list" class="submissions-grid"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -126,7 +143,10 @@
 </div>
 
 <script>
-    window.CABINET_CONTEXT = { userEmail: {{ user_email|tojson }} };
+    window.CABINET_CONTEXT = {
+        userEmail: {{ user_email|tojson }},
+        adminView: {{ admin_view|tojson }}
+    };
 </script>
 <script src="{{ url_for('static', filename='cabinet.js') }}"></script>
 </body>

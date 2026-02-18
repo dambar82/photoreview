@@ -86,6 +86,9 @@
                     <div class="form-group">
                         <label for="email">Email *</label>
                         <input type="email" id="email" required placeholder="your@email.com">
+                        <button type="button" class="btn btn-secondary" id="existing-cabinet-btn" style="display: none; margin-top: 10px;">
+                            Перейти в Личный кабинет
+                        </button>
                     </div>
 
                     <div class="form-group">
@@ -134,14 +137,46 @@
 
         <!-- Admin Tab -->
         <div id="admin-tab" class="tab-content {% if admin_mode %}active{% endif %}">
-            <div class="filter-bar">
-                <button class="filter-btn active" data-filter="all">Все</button>
-                <button class="filter-btn" data-filter="pending">На проверке</button>
-                <button class="filter-btn" data-filter="approved">Одобрено</button>
-                <button class="filter-btn" data-filter="rejected">Отклонено</button>
+            <div class="filter-bar admin-section-switcher">
+                <button class="filter-btn active" id="admin-section-submissions-btn" type="button">Заявки</button>
+                <button class="filter-btn" id="admin-section-activity-btn" type="button">Активность пользователей</button>
             </div>
 
-            <div class="submissions-grid" id="admin-list"></div>
+            <div id="admin-submissions-section">
+                <div class="filter-bar">
+                    <button class="filter-btn active" data-filter="all">Все</button>
+                    <button class="filter-btn" data-filter="pending">На проверке</button>
+                    <button class="filter-btn" data-filter="approved">Одобрено</button>
+                    <button class="filter-btn" data-filter="rejected">Отклонено</button>
+                </div>
+                <div class="submissions-grid" id="admin-list"></div>
+            </div>
+
+            <div class="activity-panel" id="admin-activity-section" style="display: none;">
+                <h2 style="margin-bottom: 12px; color: var(--color-primary);">Активность пользователей</h2>
+                <div class="activity-filters">
+                    <input type="date" id="activity-day-filter">
+                    <select id="activity-district-filter">
+                        <option value="">Все районы</option>
+                    </select>
+                    <button type="button" class="filter-btn" id="activity-apply-btn">Применить</button>
+                    <button type="button" class="filter-btn" id="activity-reset-btn">Сброс</button>
+                </div>
+                <div class="activity-table-wrap">
+                    <table class="activity-table">
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                <th>Пользователь</th>
+                                <th>Район</th>
+                                <th>Действие</th>
+                                <th>Детали</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activity-list"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 

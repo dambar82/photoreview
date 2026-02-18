@@ -484,10 +484,14 @@
     align-items: center;
     justify-content: flex-end;
     gap: 12px;
-    margin-bottom: 10px;
+    margin-bottom: 14px;
 }
 
+.cabinet-action-btn,
 .cabinet-logout-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
     border: 1px solid var(--color-border);
     background: var(--color-bg-base);
     color: var(--color-text-primary);
@@ -497,7 +501,192 @@
     font-size: 14px;
 }
 
+.cabinet-action-btn:hover,
 .cabinet-logout-btn:hover {
     border-color: var(--color-primary);
     color: var(--color-primary);
+}
+
+.cabinet-action-btn {
+    border-color: var(--color-primary);
+    background: linear-gradient(180deg, var(--color-primary), var(--color-primary-hover));
+    color: var(--color-bg-base);
+    font-weight: 600;
+}
+
+.cabinet-action-btn:hover {
+    color: var(--color-bg-base);
+    filter: brightness(1.05);
+}
+
+.cabinet-action-btn:active {
+    transform: translateY(1px);
+}
+
+.cabinet-profile-panel {
+    margin-top: 24px;
+    padding: 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.25);
+}
+
+.activity-panel {
+    margin-top: 28px;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.activity-filters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.activity-filters input,
+.activity-filters select {
+    padding: 10px 12px;
+    background: var(--color-bg-base);
+    color: var(--color-text-primary);
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    min-width: 180px;
+}
+
+.activity-table-wrap {
+    overflow: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.activity-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px;
+}
+
+.activity-table th,
+.activity-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.activity-table th {
+    color: var(--color-primary);
+    font-weight: 700;
+    background: var(--color-bg-base);
+}
+
+.activity-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    font-weight: 600;
+}
+
+.activity-link-secondary {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    font-size: 0.95em;
+}
+
+.activity-detail-links {
+    margin-top: 6px;
+}
+
+.photo-action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.photo-actions-title {
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+.btn-mini {
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.btn-mini-primary {
+    background: var(--color-primary);
+    color: var(--color-bg-base);
+}
+
+.btn-mini-primary:hover {
+    background: var(--color-primary-hover);
+}
+
+.btn-mini-danger {
+    background: var(--color-error);
+    color: #fff;
+}
+
+.btn-mini-danger:hover {
+    opacity: 0.9;
+}
+
+.btn-mini-muted {
+    background: var(--color-bg-muted);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+}
+
+.btn-mini-muted:hover {
+    border-color: var(--color-primary);
+}
+
+.photo-action-note {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.originals-list {
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+}
+
+.originals-title {
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-bottom: 6px;
+}
+
+.originals-item {
+    margin-top: 4px;
+}
+
+.original-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+}
+
+.original-link:visited {
+    color: var(--color-primary);
+}
+
+.original-size {
+    color: var(--color-text-secondary);
+    margin-left: 4px;
 }

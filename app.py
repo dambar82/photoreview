@@ -1,9 +1,10 @@
 import os
+import re
 import sqlite3
 import uuid
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from PIL import Image, UnidentifiedImageError
@@ -37,6 +38,29 @@ def now_ru() -> str:
     return datetime.now().strftime("%d.%m.%Y, %H:%M:%S")
 
 
+def now_iso() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def today_key() -> str:
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+PHOTO_ID_RE = re.compile(r"#(\d+)")
+
+
+def extract_photo_id(details: str) -> int | None:
+    if not details:
+        return None
+    match = PHOTO_ID_RE.search(details)
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return None
+
+
 def init_db() -> None:
     with get_db_connection() as conn:
         conn.executescript(
@@ -63,7 +87,19 @@ def init_db() -> None:
                 is_original INTEGER NOT NULL DEFAULT 0,
                 review_status TEXT NOT NULL DEFAULT 'pending',
                 review_comment TEXT NOT NULL DEFAULT '',
+                parent_photo_id INTEGER,
                 FOREIGN KEY (submission_id) REFERENCES submissions(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                actor_email TEXT NOT NULL,
+                actor_name TEXT,
+                district TEXT,
+                action_type TEXT NOT NULL,
+                details TEXT,
+                created_at_iso TEXT NOT NULL,
+                created_day TEXT NOT NULL
             );
             """
         )
@@ -78,7 +114,37 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE files ADD COLUMN review_comment TEXT NOT NULL DEFAULT ''"
             )
+        if "parent_photo_id" not in file_columns:
+            conn.execute("ALTER TABLE files ADD COLUMN parent_photo_id INTEGER")
         conn.commit()
+
+
+def log_activity(
+    conn: sqlite3.Connection,
+    *,
+    actor_email: str,
+    actor_name: str,
+    district: str,
+    action_type: str,
+    details: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO activity_logs (
+            actor_email, actor_name, district, action_type, details, created_at_iso, created_day
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            actor_email.strip().lower(),
+            actor_name.strip(),
+            district.strip(),
+            action_type,
+            details,
+            now_iso(),
+            today_key(),
+        ),
+    )
 
 
 def is_admin() -> bool:
@@ -111,6 +177,7 @@ def file_to_payload(row: sqlite3.Row) -> dict:
         "url": f"/{row['file_path'].replace(os.sep, '/')}",
         "status": row["review_status"] if row["review_status"] else "pending",
         "comment": row["review_comment"] or "",
+        "parentPhotoId": row["parent_photo_id"],
     }
 
 
@@ -137,14 +204,32 @@ def build_submission_payload(conn: sqlite3.Connection, row: sqlite3.Row) -> dict
     files = conn.execute(
         """
         SELECT id, file_name, file_path, file_size, is_original, review_status, review_comment
+             , parent_photo_id
         FROM files
         WHERE submission_id = ?
         ORDER BY id
         """,
         (row["id"],),
     ).fetchall()
-    photos = [file_to_payload(f) for f in files if f["is_original"] == 0]
-    originals = [file_to_payload(f) for f in files if f["is_original"] == 1]
+    photos_rows = [f for f in files if f["is_original"] == 0]
+    originals_rows = [f for f in files if f["is_original"] == 1]
+
+    originals_by_photo: dict[int, list[dict]] = {}
+    submission_originals: list[dict] = []
+    for original in originals_rows:
+        payload = file_to_payload(original)
+        parent_id = original["parent_photo_id"]
+        if parent_id:
+            originals_by_photo.setdefault(parent_id, []).append(payload)
+        else:
+            submission_originals.append(payload)
+
+    photos = []
+    for photo in photos_rows:
+        photo_payload = file_to_payload(photo)
+        photo_payload["originals"] = originals_by_photo.get(photo["id"], [])
+        photos.append(photo_payload)
+
     return {
         "id": row["id"],
         "name": row["name"],
@@ -157,7 +242,7 @@ def build_submission_payload(conn: sqlite3.Connection, row: sqlite3.Row) -> dict
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"] or "",
         "photos": photos,
-        "originals": originals,
+        "originals": submission_originals,
     }
 
 
@@ -200,13 +285,13 @@ def validate_and_store_photo_files(conn: sqlite3.Connection, submission_id: int,
         file_name, file_size, file_path = save_uploaded_file(submission_id, storage, is_original=False)
         conn.execute(
             """
-            INSERT INTO files (
-                submission_id, file_name, file_path, file_size, is_original, review_status, review_comment
+                INSERT INTO files (
+                    submission_id, file_name, file_path, file_size, is_original, review_status, review_comment, parent_photo_id
+                )
+                VALUES (?, ?, ?, ?, 0, 'pending', '', NULL)
+                """,
+                (submission_id, file_name, file_path, file_size),
             )
-            VALUES (?, ?, ?, ?, 0, 'pending', '')
-            """,
-            (submission_id, file_name, file_path, file_size),
-        )
 
 
 def get_submission_by_email(conn: sqlite3.Connection, email: str):
@@ -228,13 +313,13 @@ def admin_page():
 
 @app.route("/user")
 def user_cabinet_landing():
-    return render_template("cabinet.html", user_email="")
+    return render_template("cabinet.html", user_email="", admin_view=is_admin())
 
 
 @app.route("/user/<path:user_email>")
 def user_cabinet(user_email: str):
     decoded_email = unquote(user_email).strip().lower()
-    return render_template("cabinet.html", user_email=decoded_email)
+    return render_template("cabinet.html", user_email=decoded_email, admin_view=is_admin())
 
 
 @app.route("/email")
@@ -307,6 +392,14 @@ def submit_photos():
                 (name, district, phone, comment, now_ru(), submission_id),
             )
             remove_submission_files(conn, submission_id, originals_only=False)
+            log_activity(
+                conn,
+                actor_email=email,
+                actor_name=name,
+                district=district,
+                action_type="submission_updated",
+                details=f"Обновил заявку и загрузил {len(files)} фото",
+            )
         else:
             cursor = conn.execute(
                 """
@@ -316,6 +409,14 @@ def submit_photos():
                 (name, district, email, phone, comment, now_ru()),
             )
             submission_id = int(cursor.lastrowid)
+            log_activity(
+                conn,
+                actor_email=email,
+                actor_name=name,
+                district=district,
+                action_type="submission_created",
+                details=f"Создал заявку и загрузил {len(files)} фото",
+            )
 
         try:
             validate_and_store_photo_files(conn, submission_id, files)
@@ -383,6 +484,14 @@ def update_user_profile(user_email: str):
                 (name, district, phone, comment, now_ru(), row["id"]),
             )
             submission_id = row["id"]
+            log_activity(
+                conn,
+                actor_email=email,
+                actor_name=name,
+                district=district,
+                action_type="profile_updated",
+                details="Обновил профиль",
+            )
         else:
             cursor = conn.execute(
                 """
@@ -392,6 +501,14 @@ def update_user_profile(user_email: str):
                 (name, district, email, phone, comment, now_ru()),
             )
             submission_id = int(cursor.lastrowid)
+            log_activity(
+                conn,
+                actor_email=email,
+                actor_name=name,
+                district=district,
+                action_type="profile_created",
+                details="Создал профиль",
+            )
 
         conn.commit()
         updated = conn.execute("SELECT * FROM submissions WHERE id = ?", (submission_id,)).fetchone()
@@ -418,6 +535,14 @@ def upload_user_photos(user_email: str):
         try:
             validate_and_store_photo_files(conn, submission_id, files)
             recalc_submission_status(conn, submission_id)
+            log_activity(
+                conn,
+                actor_email=email,
+                actor_name=row["name"] or "",
+                district=row["district"] or "",
+                action_type="photos_uploaded",
+                details=f"Загрузил {len(files)} новых фото",
+            )
             conn.commit()
         except ValueError as exc:
             conn.rollback()
@@ -471,6 +596,207 @@ def upload_originals(submission_id: int):
     return jsonify({"ok": True, "submission": payload})
 
 
+@app.post("/api/photos/<int:photo_id>/originals")
+def upload_originals_for_photo(photo_id: int):
+    files = request.files.getlist("originals")
+    if not files:
+        return jsonify({"error": "Файлы не выбраны"}), 400
+
+    with get_db_connection() as conn:
+        photo = conn.execute(
+            """
+            SELECT id, submission_id, is_original, review_status
+            FROM files
+            WHERE id = ?
+            """,
+            (photo_id,),
+        ).fetchone()
+
+        if not photo:
+            return jsonify({"error": "Фото не найдено"}), 404
+        if photo["is_original"] == 1:
+            return jsonify({"error": "Нельзя загружать оригиналы для оригинала"}), 400
+        if photo["review_status"] != "approved":
+            return jsonify({"error": "Оригиналы можно загрузить только для одобренного фото"}), 400
+
+        existing = conn.execute(
+            "SELECT file_path FROM files WHERE parent_photo_id = ? AND is_original = 1",
+            (photo_id,),
+        ).fetchall()
+        for row in existing:
+            try:
+                file_name = Path(str(row["file_path"]).replace("\\", "/")).name
+                (UPLOADS_DIR / file_name).unlink(missing_ok=True)
+            except OSError:
+                pass
+        conn.execute(
+            "DELETE FROM files WHERE parent_photo_id = ? AND is_original = 1",
+            (photo_id,),
+        )
+
+        for storage in files:
+            file_name, file_size, file_path = save_uploaded_file(
+                photo["submission_id"], storage, is_original=True
+            )
+            conn.execute(
+                """
+                INSERT INTO files (
+                    submission_id, file_name, file_path, file_size, is_original, parent_photo_id
+                )
+                VALUES (?, ?, ?, ?, 1, ?)
+                """,
+                (photo["submission_id"], file_name, file_path, file_size, photo_id),
+            )
+
+        submission_row = conn.execute(
+            "SELECT email, name, district FROM submissions WHERE id = ?",
+            (photo["submission_id"],),
+        ).fetchone()
+        log_activity(
+            conn,
+            actor_email=submission_row["email"],
+            actor_name=submission_row["name"] or "",
+            district=submission_row["district"] or "",
+            action_type="photo_original_uploaded",
+            details=f"Загрузил {len(files)} оригинал(ов) для фото #{photo_id}",
+        )
+
+        conn.commit()
+        submission = conn.execute(
+            "SELECT * FROM submissions WHERE id = ?",
+            (photo["submission_id"],),
+        ).fetchone()
+        payload = build_submission_payload(conn, submission)
+
+    return jsonify({"ok": True, "submission": payload})
+
+
+@app.delete("/api/photos/<int:photo_id>/originals")
+def delete_originals_for_photo(photo_id: int):
+    with get_db_connection() as conn:
+        photo = conn.execute(
+            """
+            SELECT id, submission_id, is_original
+            FROM files
+            WHERE id = ?
+            """,
+            (photo_id,),
+        ).fetchone()
+        if not photo:
+            return jsonify({"error": "Фото не найдено"}), 404
+        if photo["is_original"] == 1:
+            return jsonify({"error": "Нельзя удалять оригиналы для оригинала"}), 400
+
+        existing = conn.execute(
+            "SELECT file_path FROM files WHERE parent_photo_id = ? AND is_original = 1",
+            (photo_id,),
+        ).fetchall()
+        for row in existing:
+            try:
+                file_name = Path(str(row["file_path"]).replace("\\", "/")).name
+                (UPLOADS_DIR / file_name).unlink(missing_ok=True)
+            except OSError:
+                pass
+
+        conn.execute(
+            "DELETE FROM files WHERE parent_photo_id = ? AND is_original = 1",
+            (photo_id,),
+        )
+
+        submission_row = conn.execute(
+            "SELECT email, name, district FROM submissions WHERE id = ?",
+            (photo["submission_id"],),
+        ).fetchone()
+        log_activity(
+            conn,
+            actor_email=submission_row["email"],
+            actor_name=submission_row["name"] or "",
+            district=submission_row["district"] or "",
+            action_type="photo_original_deleted",
+            details=f"Удалил оригиналы для фото #{photo_id}",
+        )
+        conn.commit()
+
+        submission = conn.execute(
+            "SELECT * FROM submissions WHERE id = ?",
+            (photo["submission_id"],),
+        ).fetchone()
+        payload = build_submission_payload(conn, submission)
+
+    return jsonify({"ok": True, "submission": payload})
+
+
+@app.delete("/api/photos/<int:photo_id>")
+def delete_uploaded_photo(photo_id: int):
+    with get_db_connection() as conn:
+        photo = conn.execute(
+            """
+            SELECT id, submission_id, is_original
+            FROM files
+            WHERE id = ?
+            """,
+            (photo_id,),
+        ).fetchone()
+        if not photo:
+            return jsonify({"error": "Фото не найдено"}), 404
+        if photo["is_original"] == 1:
+            return jsonify({"error": "Это оригинал, используйте удаление оригинала"}), 400
+
+        # Удаляем привязанные оригиналы
+        linked = conn.execute(
+            "SELECT file_path FROM files WHERE parent_photo_id = ? AND is_original = 1",
+            (photo_id,),
+        ).fetchall()
+        for row in linked:
+            try:
+                file_name = Path(str(row["file_path"]).replace("\\", "/")).name
+                (UPLOADS_DIR / file_name).unlink(missing_ok=True)
+            except OSError:
+                pass
+        conn.execute(
+            "DELETE FROM files WHERE parent_photo_id = ? AND is_original = 1",
+            (photo_id,),
+        )
+
+        # Удаляем само фото
+        photo_path_row = conn.execute(
+            "SELECT file_path FROM files WHERE id = ?",
+            (photo_id,),
+        ).fetchone()
+        if photo_path_row:
+            try:
+                file_name = Path(str(photo_path_row["file_path"]).replace("\\", "/")).name
+                (UPLOADS_DIR / file_name).unlink(missing_ok=True)
+            except OSError:
+                pass
+        conn.execute("DELETE FROM files WHERE id = ?", (photo_id,))
+
+        recalc_submission_status(conn, photo["submission_id"])
+
+        submission_row = conn.execute(
+            "SELECT email, name, district FROM submissions WHERE id = ?",
+            (photo["submission_id"],),
+        ).fetchone()
+        if submission_row:
+            log_activity(
+                conn,
+                actor_email=submission_row["email"],
+                actor_name=submission_row["name"] or "",
+                district=submission_row["district"] or "",
+                action_type="photo_deleted",
+                details=f"Удалил фото #{photo_id}",
+            )
+
+        conn.commit()
+        submission = conn.execute(
+            "SELECT * FROM submissions WHERE id = ?",
+            (photo["submission_id"],),
+        ).fetchone()
+        payload = build_submission_payload(conn, submission)
+
+    return jsonify({"ok": True, "submission": payload})
+
+
 @app.get("/api/admin/submissions")
 def admin_submissions():
     if not is_admin():
@@ -496,6 +822,84 @@ def admin_submissions():
         conn.commit()
 
     return jsonify(payload)
+
+
+@app.get("/api/admin/activities")
+def admin_activities():
+    if not is_admin():
+        return jsonify({"error": "Требуется авторизация администратора"}), 401
+
+    day_filter = request.args.get("day", "").strip()
+    district_filter = request.args.get("district", "").strip()
+
+    where_parts = []
+    params: list[str] = []
+    if day_filter:
+        where_parts.append("created_day = ?")
+        params.append(day_filter)
+    if district_filter:
+        where_parts.append("district = ?")
+        params.append(district_filter)
+
+    where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
+
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT id, actor_email, actor_name, district, action_type, details, created_at_iso
+            FROM activity_logs
+            {where_sql}
+            ORDER BY id DESC
+            LIMIT 500
+            """,
+            tuple(params),
+        ).fetchall()
+
+        photo_ids = {
+            pid
+            for pid in (extract_photo_id(row["details"] or "") for row in rows)
+            if pid is not None
+        }
+        photo_links: dict[int, str] = {}
+        if photo_ids:
+            placeholders = ",".join(["?"] * len(photo_ids))
+            photo_rows = conn.execute(
+                f"SELECT id, file_path FROM files WHERE id IN ({placeholders})",
+                tuple(photo_ids),
+            ).fetchall()
+            photo_links = {
+                int(photo_row["id"]): f"/{str(photo_row['file_path']).replace(os.sep, '/')}"
+                for photo_row in photo_rows
+            }
+
+        districts_rows = conn.execute(
+            """
+            SELECT DISTINCT district
+            FROM activity_logs
+            WHERE district IS NOT NULL AND district <> ''
+            ORDER BY district
+            """
+        ).fetchall()
+
+    return jsonify(
+        {
+            "items": [
+                {
+                    "id": row["id"],
+                    "email": row["actor_email"],
+                    "name": row["actor_name"] or "",
+                    "district": row["district"] or "",
+                    "actionType": row["action_type"],
+                    "details": row["details"] or "",
+                    "createdAt": row["created_at_iso"],
+                    "profileUrl": f"/user/{quote(row['actor_email'], safe='')}",
+                    "photoUrl": photo_links.get(extract_photo_id(row["details"] or "")),
+                }
+                for row in rows
+            ],
+            "districts": [row["district"] for row in districts_rows],
+        }
+    )
 
 
 @app.post("/api/admin/submissions/<int:submission_id>/status")
@@ -551,6 +955,33 @@ def admin_review_photo(file_id: int):
         conn.commit()
 
     return jsonify({"ok": True, "submissionStatus": submission_status})
+
+
+@app.post("/api/admin/photos/<int:file_id>/comment")
+def admin_save_photo_comment(file_id: int):
+    if not is_admin():
+        return jsonify({"error": "Требуется авторизация администратора"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    comment = payload.get("comment", "")
+
+    with get_db_connection() as conn:
+        file_row = conn.execute(
+            "SELECT id, is_original FROM files WHERE id = ?",
+            (file_id,),
+        ).fetchone()
+        if not file_row:
+            return jsonify({"error": "Фото не найдено"}), 404
+        if file_row["is_original"] == 1:
+            return jsonify({"error": "Нельзя комментировать оригиналы"}), 400
+
+        conn.execute(
+            "UPDATE files SET review_comment = ? WHERE id = ?",
+            (comment, file_id),
+        )
+        conn.commit()
+
+    return jsonify({"ok": True})
 
 
 @app.post("/api/admin/submissions/<int:submission_id>/comment")
