@@ -1,5 +1,6 @@
 let currentFilter = "all";
 let modalScale = 1;
+const isAdminRoute = Boolean(window.APP_CONTEXT && window.APP_CONTEXT.adminMode);
 
 const modal = document.getElementById("photo-modal");
 const modalImage = document.getElementById("photo-modal-image");
@@ -75,14 +76,13 @@ window.openPhotoModal = openPhotoModal;
 
 async function checkAdminSession() {
     const data = await api("/api/admin/session");
-    if (data.isAdmin) {
-        document.getElementById("admin-tab-btn").style.display = "block";
-        return true;
-    }
-    return false;
+    return Boolean(data.isAdmin);
 }
 
 async function ensureAdminAccess() {
+    if (!isAdminRoute) {
+        return false;
+    }
     const active = await checkAdminSession();
     if (active) return true;
 
@@ -96,7 +96,6 @@ async function ensureAdminAccess() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password }),
         });
-        document.getElementById("admin-tab-btn").style.display = "block";
         return true;
     } catch (e) {
         alert("❌ " + e.message);
@@ -252,8 +251,7 @@ function renderUserCards(submissions) {
             `).join("")}
             <div class="submission-info">
                 <strong>ID:</strong> ${sub.id}<br>
-                <strong>Дата:</strong> ${sub.createdAt}<br>
-                <a href="/user/${encodeURIComponent(sub.email)}" style="color: var(--color-primary);">Открыть личный кабинет</a>
+                <strong>Дата:</strong> ${sub.createdAt}
             </div>
             <span class="status-badge status-${sub.status}">${statusLabel(sub.status)}</span>
 
@@ -288,16 +286,25 @@ document.getElementById("check-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const email = document.getElementById("check-email").value;
+    const checkForm = document.getElementById("check-form");
     const resultDiv = document.getElementById("status-result");
+    const cabinetBtn = document.getElementById("status-cabinet-btn");
 
     try {
         const submissions = await api(`/api/submissions?email=${encodeURIComponent(email)}`);
         if (!submissions.length) {
+            checkForm.style.display = "";
+            cabinetBtn.style.display = "none";
             resultDiv.innerHTML = `<div class="empty-state"><p>Заявки с таким email не найдены</p></div>`;
             return;
         }
 
+        checkForm.style.display = "none";
         resultDiv.innerHTML = renderUserCards(submissions);
+        cabinetBtn.style.display = "block";
+        cabinetBtn.onclick = () => {
+            window.location.href = `/user/${encodeURIComponent(email.trim().toLowerCase())}`;
+        };
         submissions.forEach((sub) => {
             if (sub.status === "approved" && (!sub.originals || sub.originals.length === 0)) {
                 const uploadInput = document.getElementById(`upload-originals-${sub.id}`);
@@ -417,10 +424,7 @@ async function renderAdminList() {
 }
 
 (async function init() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const isAdminMode = Boolean(window.APP_CONTEXT && window.APP_CONTEXT.adminMode);
-    const shouldOpenAdmin = isAdminMode || window.location.pathname === "/admin" || urlParams.get("admin") === "true";
-    await checkAdminSession();
+    const shouldOpenAdmin = isAdminRoute || window.location.pathname === "/admin";
 
     if (shouldOpenAdmin) {
         const ok = await ensureAdminAccess();

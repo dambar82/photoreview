@@ -200,6 +200,17 @@
             transform: none;
         }
 
+        .btn-secondary {
+            background: transparent;
+            color: var(--color-text-primary);
+            border: 2px solid var(--color-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-bg-muted);
+            border-color: var(--color-primary);
+        }
+
         .submissions-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
