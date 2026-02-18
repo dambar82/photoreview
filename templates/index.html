@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система проверки фотографий</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📸 Система проверки фотографий</h1>
+            <p style="color: var(--color-text-secondary); {% if admin_mode %}display: none;{% endif %}">
+                Загрузите фото на проверку или отслеживайте статус
+            </p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn {% if not admin_mode %}active{% endif %}" data-tab="submit" {% if admin_mode %}style="display: none;"{% endif %}>Отправить фото</button>
+            <button class="tab-btn" data-tab="check" {% if admin_mode %}style="display: none;"{% endif %}>Проверить статус</button>
+            <button class="tab-btn {% if admin_mode %}active{% endif %}" data-tab="admin" id="admin-tab-btn" style="{% if admin_mode %}display: block;{% else %}display: none;{% endif %}">Панель администратора</button>
+        </div>
+
+        <!-- Submit Photo Tab -->
+        <div id="submit-tab" class="tab-content {% if not admin_mode %}active{% endif %}">
+            <div class="form-card">
+                <h2 style="margin-bottom: 20px; color: var(--color-primary);">Отправка фотографии</h2>
+                <form id="submit-form">
+                    <div class="form-group">
+                        <label for="name">Имя *</label>
+                        <input type="text" id="name" required placeholder="Введите ваше имя">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="district">Район *</label>
+                        <select id="district" required style="width: 100%; padding: 12px; background: var(--color-bg-base); color: var(--color-text-primary); border: 2px solid var(--color-border); border-radius: 8px; font-size: 16px;">
+                            <option value="">Выберите район</option>
+                            <option value="Агрызский">Агрызский</option>
+                            <option value="Азнакаевский">Азнакаевский</option>
+                            <option value="Аксубаевский">Аксубаевский</option>
+                            <option value="Актанышский">Актанышский</option>
+                            <option value="Алексеевский">Алексеевский</option>
+                            <option value="Алькеевский">Алькеевский</option>
+                            <option value="Альметьевский">Альметьевский</option>
+                            <option value="Апастовский">Апастовский</option>
+                            <option value="Арский">Арский</option>
+                            <option value="Атнинский">Атнинский</option>
+                            <option value="Бавлинский">Бавлинский</option>
+                            <option value="Балтасинский">Балтасинский</option>
+                            <option value="Бугульминский">Бугульминский</option>
+                            <option value="Буинский">Буинский</option>
+                            <option value="Верхнеуслонский">Верхнеуслонский</option>
+                            <option value="Высокогорский">Высокогорский</option>
+                            <option value="Дрожжановский">Дрожжановский</option>
+                            <option value="Елабужский">Елабужский</option>
+                            <option value="Заинский">Заинский</option>
+                            <option value="Зеленодольский">Зеленодольский</option>
+                            <option value="Кайбицкий">Кайбицкий</option>
+                            <option value="Камско-Устьинский">Камско-Устьинский</option>
+                            <option value="Кукморский">Кукморский</option>
+                            <option value="Лаишевский">Лаишевский</option>
+                            <option value="Лениногорский">Лениногорский</option>
+                            <option value="Мамадышский">Мамадышский</option>
+                            <option value="Менделеевский">Менделеевский</option>
+                            <option value="Мензелинский">Мензелинский</option>
+                            <option value="Муслюмовский">Муслюмовский</option>
+                            <option value="Нижнекамский">Нижнекамский</option>
+                            <option value="Новошешминский">Новошешминский</option>
+                            <option value="Нурлатский">Нурлатский</option>
+                            <option value="Пестречинский">Пестречинский</option>
+                            <option value="Рыбно-Слободский">Рыбно-Слободский</option>
+                            <option value="Сабинский">Сабинский</option>
+                            <option value="Сармановский">Сармановский</option>
+                            <option value="Спасский">Спасский</option>
+                            <option value="Тетюшский">Тетюшский</option>
+                            <option value="Тукаевский">Тукаевский</option>
+                            <option value="Тюлячинский">Тюлячинский</option>
+                            <option value="Черемшанский">Черемшанский</option>
+                            <option value="Чистопольский">Чистопольский</option>
+                            <option value="Ютазинский">Ютазинский</option>
+                            <option value="г. Казань">г. Казань</option>
+                            <option value="г. Набережные Челны">г. Набережные Челны</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" required placeholder="your@email.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Телефон</label>
+                        <input type="text" id="phone" placeholder="+7 (999) 123-45-67">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="comment">Комментарий</label>
+                        <textarea id="comment" placeholder="Дополнительная информация (необязательно)"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Фотографии для проверки *</label>
+                        <div class="file-upload" id="file-upload">
+                            <input type="file" id="photo" accept="image/*" required multiple>
+                            <p style="color: var(--color-text-muted);">
+                                📁 Нажмите или перетащите фото (можно несколько)<br>
+                                <small>Требования: мин. 2000px по ширине, мин. 250 КБ<br>JPG, PNG, WEBP</small>
+                            </p>
+                        </div>
+                        <div class="file-preview" id="file-preview"></div>
+                    </div>
+
+                    <button type="submit" class="btn">Отправить на проверку</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Check Status Tab -->
+        <div id="check-tab" class="tab-content">
+            <div class="form-card check-status-form">
+                <h2 style="margin-bottom: 20px; color: var(--color-primary);">Проверка статуса</h2>
+                <form id="check-form">
+                    <div class="form-group">
+                        <label for="check-email">Email</label>
+                        <input type="email" id="check-email" required placeholder="your@email.com">
+                    </div>
+                    <button type="submit" class="btn">Проверить</button>
+                </form>
+
+                <div id="status-result" style="margin-top: 30px;"></div>
+            </div>
+        </div>
+
+        <!-- Admin Tab -->
+        <div id="admin-tab" class="tab-content {% if admin_mode %}active{% endif %}">
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">Все</button>
+                <button class="filter-btn" data-filter="pending">На проверке</button>
+                <button class="filter-btn" data-filter="approved">Одобрено</button>
+                <button class="filter-btn" data-filter="rejected">Отклонено</button>
+            </div>
+
+            <div class="submissions-grid" id="admin-list"></div>
+        </div>
+    </div>
+
+    <div id="photo-modal" class="photo-modal">
+        <button class="photo-modal-close" id="photo-modal-close">✕</button>
+        <div class="photo-modal-toolbar">
+            <button id="zoom-out-btn">−</button>
+            <button id="zoom-reset-btn">100%</button>
+            <button id="zoom-in-btn">+</button>
+        </div>
+        <div class="photo-modal-stage" id="photo-modal-stage">
+            <img id="photo-modal-image" alt="Просмотр фото">
+        </div>
+    </div>
+
+    <script>
+        window.APP_CONTEXT = {
+            adminMode: {{ 'true' if admin_mode else 'false' }}
+        };
+    </script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+
+
+

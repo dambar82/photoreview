@@ -1,0 +1,18 @@
+services:
+  photoreview:
+    build: .
+    container_name: photoreview
+    ports:
+      - "5000:5000"
+    environment:
+      PHOTO_REVIEW_SECRET_KEY: "change-me-in-production"
+      PHOTO_REVIEW_ADMIN_USER: "admin"
+      PHOTO_REVIEW_ADMIN_PASS: "1982@Sd"
+      PHOTO_REVIEW_DB_PATH: "/data/photoreview.db"
+      PHOTO_REVIEW_UPLOADS_DIR: "/data/uploads"
+    volumes:
+      - photoreview_data:/data
+    restart: unless-stopped
+
+volumes:
+  photoreview_data:
