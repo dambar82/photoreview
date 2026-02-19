@@ -3,6 +3,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
+data/
+*.save
 photoreview.db
 uploads/*
 !uploads/.gitkeep
