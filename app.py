@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
+from threading import Thread
 from urllib.parse import quote, unquote
 
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
@@ -32,6 +33,7 @@ SMTP_PASS = os.getenv("PHOTO_REVIEW_SMTP_PASS", "").strip()
 SMTP_USE_TLS = os.getenv("PHOTO_REVIEW_SMTP_USE_TLS", "1").strip() == "1"
 SMTP_USE_SSL = os.getenv("PHOTO_REVIEW_SMTP_USE_SSL", "0").strip() == "1"
 SMTP_FROM = os.getenv("PHOTO_REVIEW_SMTP_FROM", SMTP_USER).strip()
+SMTP_TIMEOUT_SEC = int(os.getenv("PHOTO_REVIEW_SMTP_TIMEOUT_SEC", "8"))
 ADMIN_NOTIFY_EMAIL = os.getenv("PHOTO_REVIEW_ADMIN_NOTIFY_EMAIL", "damir-82@bk.ru").strip().lower()
 PUBLIC_BASE_URL = os.getenv("PHOTO_REVIEW_BASE_URL", "").strip().rstrip("/")
 
@@ -57,13 +59,13 @@ def send_email_notification(to_email: str, subject: str, body: str) -> bool:
 
     try:
         if SMTP_USE_SSL:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SEC) as server:
                 if SMTP_USER:
                     server.login(SMTP_USER, SMTP_PASS)
                 server.send_message(msg)
             return True
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SEC) as server:
             if SMTP_USE_TLS:
                 server.starttls()
             if SMTP_USER:
@@ -73,6 +75,15 @@ def send_email_notification(to_email: str, subject: str, body: str) -> bool:
     except Exception:
         app.logger.exception("Failed to send email notification")
         return False
+
+
+def queue_email_notification(to_email: str, subject: str, body: str) -> None:
+    # Do not block API requests on SMTP latency/timeouts.
+    Thread(
+        target=send_email_notification,
+        args=(to_email, subject, body),
+        daemon=True,
+    ).start()
 
 
 def photo_status_label_ru(status: str) -> str:
@@ -393,6 +404,11 @@ def uploaded_file(filename: str):
     return send_from_directory(UPLOADS_DIR, filename)
 
 
+@app.route("/favicon.ico")
+def favicon():
+    return "", 204
+
+
 @app.post("/api/admin/login")
 def admin_login():
     payload = request.get_json(silent=True) or {}
@@ -482,7 +498,7 @@ def submit_photos():
             return jsonify({"error": str(exc)}), 400
 
     safe_email = quote(email, safe="")
-    send_email_notification(
+    queue_email_notification(
         ADMIN_NOTIFY_EMAIL,
         "PhotoReview: новая загрузка фото",
         (
@@ -620,7 +636,7 @@ def upload_user_photos(user_email: str):
         response_payload = build_submission_payload(conn, updated)
 
     safe_email = quote(email, safe="")
-    send_email_notification(
+    queue_email_notification(
         ADMIN_NOTIFY_EMAIL,
         "PhotoReview: пользователь загрузил новые фото",
         (
@@ -1092,7 +1108,7 @@ def admin_review_photo(file_id: int):
     if user_email:
         safe_email = quote(user_email, safe="")
         comment_part = f"\nКомментарий администратора: {comment.strip()}" if comment.strip() else ""
-        send_email_notification(
+        queue_email_notification(
             user_email,
             f"PhotoReview: фото #{file_id} — {photo_status_label_ru(new_status)}",
             (
@@ -1143,7 +1159,7 @@ def admin_save_photo_comment(file_id: int):
     user_email = (file_row["email"] or "").strip().lower()
     if user_email and new_comment and new_comment != old_comment:
         safe_email = quote(user_email, safe="")
-        send_email_notification(
+        queue_email_notification(
             user_email,
             f"PhotoReview: комментарий по фото #{file_id}",
             (
