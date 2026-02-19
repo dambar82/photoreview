@@ -425,7 +425,7 @@
 .btn-delete-corner {
     position: absolute;
     top: 8px;
-    right: 8px;
+    left: 8px;
     width: 30px;
     height: 30px;
     border: none;
@@ -698,15 +698,15 @@
 
 #admin-list .approved-photo-row {
     display: grid;
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(240px, 280px);
-    gap: 10px;
+    grid-template-columns: 300px 520px 280px;
+    gap: 16px;
     align-items: center;
     padding: 8px;
+    min-height: 136px;
 }
 
 #admin-list .approved-photo-preview {
-    width: 100%;
-    max-width: 280px;
+    width: 300px;
     height: 120px;
     display: flex;
     align-items: center;
@@ -732,6 +732,7 @@
 }
 
 #admin-list .approved-photo-meta {
+    width: 520px;
     font-size: 13px;
     line-height: 1.25;
 }
@@ -788,6 +789,7 @@
 }
 
 #admin-list .approved-photo-row .submission-info-card {
+    width: 280px;
     padding: 10px 12px;
 }
 
@@ -824,11 +826,19 @@
     #admin-list .approved-photo-row {
         grid-template-columns: 1fr;
         align-items: start;
+        min-height: 0;
     }
 
     #admin-list .approved-meta-main {
         grid-template-columns: 1fr;
         gap: 8px;
+    }
+
+    #admin-list .approved-photo-preview,
+    #admin-list .approved-photo-meta,
+    #admin-list .approved-photo-row .submission-info-card {
+        width: 100%;
+        max-width: none;
     }
 }
 
