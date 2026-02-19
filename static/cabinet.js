@@ -35,6 +35,14 @@ function filesSignature(files) {
         .join("|");
 }
 
+async function appendStableFiles(formData, fieldName, files) {
+    for (const file of Array.from(files || [])) {
+        const buffer = await file.arrayBuffer();
+        const blob = new Blob([buffer], { type: file.type || "application/octet-stream" });
+        formData.append(fieldName, blob, file.name);
+    }
+}
+
 function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text || "";
@@ -298,7 +306,7 @@ function renderPhotos(user) {
         uploadInput.addEventListener("change", async (event) => {
             if (!event.target.files.length) return;
             const fd = new FormData();
-            Array.from(event.target.files).forEach((file) => fd.append("originals", file));
+            await appendStableFiles(fd, "originals", event.target.files);
             try {
                 const result = await api(`/api/photos/${photo.id}/originals`, {
                     method: "POST",
@@ -409,7 +417,7 @@ uploadForm.addEventListener("submit", async (e) => {
 
     const email = document.getElementById("profile-email").value.trim().toLowerCase();
     const fd = new FormData();
-    files.forEach((f) => fd.append("photos", f));
+    await appendStableFiles(fd, "photos", files);
 
     try {
         const result = await api(`/api/users/${encodeURIComponent(email)}/photos`, {
