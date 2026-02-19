@@ -111,34 +111,8 @@ docker-compose down
 docker-compose up -d --build
 ```
 
-### 6. Apache (reverse proxy)
-Файл vhost:
-- `gibdd90.multfilm.tatar.conf`
 
-Проксирование:
-- Apache `:443` -> `127.0.0.1:18000`
-- контейнер `5000` внутри Docker
-
-Применить конфиг:
-```bash
-sudo cp /var/www/html/gibdd90.multfilm.tatar/gibdd90.multfilm.tatar.conf /etc/apache2/sites-available/gibdd90.multfilm.tatar.conf
-sudo a2enmod proxy proxy_http headers rewrite ssl
-sudo a2ensite gibdd90.multfilm.tatar.conf
-sudo apachectl configtest
-sudo systemctl reload apache2
-```
-
-### 7. SSL сертификат
-Используется Let’s Encrypt:
-- `/etc/letsencrypt/live/gibdd90.multfilm.tatar/fullchain.pem`
-- `/etc/letsencrypt/live/gibdd90.multfilm.tatar/privkey.pem`
-
-Проверка сертификата:
-```bash
-sudo certbot certificates
-```
-
-### 8. Данные и бэкап
+### 6. Данные и бэкап
 Данные приложения хранятся в:
 - `/var/www/html/gibdd90.multfilm.tatar/data`
 
@@ -149,26 +123,4 @@ sudo certbot certificates
 Бэкап:
 ```bash
 tar -czf /root/photoreview-backup-$(date +%F).tar.gz /var/www/html/gibdd90.multfilm.tatar/data
-```
-
-### 9. Частые проблемы
-
-Порт занят:
-```bash
-ss -ltnp | grep 18000
-```
-
-Apache не стартует после изменения конфигурации:
-```bash
-sudo apachectl configtest
-```
-
-Контейнер не поднимается:
-```bash
-docker-compose logs --tail=200
-```
-
-SMTP не отправляет письма:
-```bash
-docker-compose logs -f | grep -i -E "smtp|email|failed"
 ```
