@@ -2,6 +2,9 @@ let currentUser = null;
 let modalScale = 1;
 let isProfileOpen = false;
 const isAdminView = Boolean(window.CABINET_CONTEXT && window.CABINET_CONTEXT.adminView);
+let cabinetValidationInProgress = false;
+let lastCabinetFilesSignature = "";
+let lastCabinetValidationOk = false;
 
 const emailForm = document.getElementById("email-form");
 const cabinetContent = document.getElementById("cabinet-content");
@@ -25,6 +28,12 @@ const modalClose = document.getElementById("photo-modal-close");
 const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const zoomResetBtn = document.getElementById("zoom-reset-btn");
+
+function filesSignature(files) {
+    return Array.from(files || [])
+        .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
+        .join("|");
+}
 
 function escapeHtml(text) {
     const div = document.createElement("div");
@@ -98,6 +107,7 @@ function loadImageMeta(src) {
 }
 
 async function validateAndPreviewCabinetFiles(files) {
+    cabinetValidationInProgress = true;
     if (!cabinetFilePreview) return false;
     cabinetFilePreview.innerHTML = "";
 
@@ -106,6 +116,9 @@ async function validateAndPreviewCabinetFiles(files) {
             console.warn(`Файл ${file.name} слишком маленький. Минимум 250 КБ`);
             if (cabinetPhotoInput) cabinetPhotoInput.value = "";
             cabinetFilePreview.innerHTML = "";
+            lastCabinetValidationOk = false;
+            lastCabinetFilesSignature = "";
+            cabinetValidationInProgress = false;
             return false;
         }
 
@@ -117,6 +130,9 @@ async function validateAndPreviewCabinetFiles(files) {
                 console.warn(`Ширина фото ${file.name} меньше 2000px`);
                 if (cabinetPhotoInput) cabinetPhotoInput.value = "";
                 cabinetFilePreview.innerHTML = "";
+                lastCabinetValidationOk = false;
+                lastCabinetFilesSignature = "";
+                cabinetValidationInProgress = false;
                 return false;
             }
 
@@ -133,10 +149,16 @@ async function validateAndPreviewCabinetFiles(files) {
             console.error(`${file.name}: ${err.message}`);
             if (cabinetPhotoInput) cabinetPhotoInput.value = "";
             cabinetFilePreview.innerHTML = "";
+            lastCabinetValidationOk = false;
+            lastCabinetFilesSignature = "";
+            cabinetValidationInProgress = false;
             return false;
         }
     }
 
+    lastCabinetValidationOk = true;
+    lastCabinetFilesSignature = filesSignature(files);
+    cabinetValidationInProgress = false;
     return true;
 }
 
@@ -376,9 +398,13 @@ uploadForm.addEventListener("submit", async (e) => {
         console.warn("Выберите фото");
         return;
     }
-    const valid = await validateAndPreviewCabinetFiles(files);
-    if (!valid) {
-        return;
+    if (cabinetValidationInProgress) return;
+    const currentSignature = filesSignature(files);
+    if (!lastCabinetValidationOk || lastCabinetFilesSignature !== currentSignature) {
+        const valid = await validateAndPreviewCabinetFiles(files);
+        if (!valid) {
+            return;
+        }
     }
 
     const email = document.getElementById("profile-email").value.trim().toLowerCase();
