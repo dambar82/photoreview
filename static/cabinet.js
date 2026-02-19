@@ -103,7 +103,7 @@ async function validateAndPreviewCabinetFiles(files) {
 
     for (const file of Array.from(files)) {
         if (file.size < 250 * 1024) {
-            alert(`❌ Файл ${file.name} слишком маленький. Минимум 250 КБ`);
+            console.warn(`Файл ${file.name} слишком маленький. Минимум 250 КБ`);
             if (cabinetPhotoInput) cabinetPhotoInput.value = "";
             cabinetFilePreview.innerHTML = "";
             return false;
@@ -114,7 +114,7 @@ async function validateAndPreviewCabinetFiles(files) {
             const meta = await loadImageMeta(src);
 
             if (meta.width < 2000) {
-                alert(`❌ Ширина фото ${file.name} меньше 2000px`);
+                console.warn(`Ширина фото ${file.name} меньше 2000px`);
                 if (cabinetPhotoInput) cabinetPhotoInput.value = "";
                 cabinetFilePreview.innerHTML = "";
                 return false;
@@ -130,7 +130,7 @@ async function validateAndPreviewCabinetFiles(files) {
             `;
             cabinetFilePreview.appendChild(preview);
         } catch (err) {
-            alert(`❌ ${file.name}: ${err.message}`);
+            console.error(`${file.name}: ${err.message}`);
             if (cabinetPhotoInput) cabinetPhotoInput.value = "";
             cabinetFilePreview.innerHTML = "";
             return false;
@@ -284,9 +284,8 @@ function renderPhotos(user) {
                 });
                 currentUser = result.submission;
                 renderPhotos(currentUser);
-                alert("✅ Оригиналы загружены");
             } catch (err) {
-                alert("❌ " + err.message);
+                console.error(err.message);
             }
         });
     });
@@ -321,7 +320,7 @@ async function loadUser(email) {
             setProfilePanelOpen(true);
             return;
         }
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 
@@ -361,9 +360,8 @@ profileForm.addEventListener("submit", async (e) => {
         currentUser = result.user;
         fillProfile(currentUser);
         renderPhotos(currentUser);
-        alert("✅ Данные сохранены");
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 });
 
@@ -375,7 +373,7 @@ uploadForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const files = Array.from(cabinetPhotoInput?.files || []);
     if (!files.length) {
-        alert("Выберите фото");
+        console.warn("Выберите фото");
         return;
     }
     const valid = await validateAndPreviewCabinetFiles(files);
@@ -396,9 +394,8 @@ uploadForm.addEventListener("submit", async (e) => {
         renderPhotos(currentUser);
         cabinetPhotoInput.value = "";
         cabinetFilePreview.innerHTML = "";
-        alert("✅ Фото загружены");
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 });
 
@@ -411,9 +408,8 @@ async function deletePhotoOriginals(photoId) {
         });
         currentUser = result.submission;
         renderPhotos(currentUser);
-        alert("✅ Оригинал удален");
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 
@@ -426,27 +422,22 @@ async function deleteOriginalFile(originalId) {
         });
         currentUser = result.submission;
         renderPhotos(currentUser);
-        alert("✅ Оригинал удален");
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 
 window.deleteOriginalFile = deleteOriginalFile;
 
 async function deleteUploadedPhoto(photoId) {
-    if (!confirm("Удалить это фото? Оригиналы, привязанные к фото, тоже будут удалены.")) {
-        return;
-    }
     try {
         const result = await api(`/api/photos/${photoId}`, {
             method: "DELETE",
         });
         currentUser = result.submission;
         renderPhotos(currentUser);
-        alert("✅ Фото удалено");
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 

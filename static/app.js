@@ -126,7 +126,7 @@ async function ensureAdminAccess() {
         });
         return true;
     } catch (e) {
-        alert("❌ " + e.message);
+        console.error(e.message);
         return false;
     }
 }
@@ -233,7 +233,7 @@ function validateAndPreviewFiles(files) {
     filePreview.innerHTML = "";
     Array.from(files).forEach((file) => {
         if (file.size < 250 * 1024) {
-            alert(`❌ Файл ${file.name} слишком маленький. Минимальный размер: 250 КБ`);
+            console.warn(`Файл ${file.name} слишком маленький. Минимальный размер: 250 КБ`);
             photoInput.value = "";
             filePreview.innerHTML = "";
             return;
@@ -244,7 +244,7 @@ function validateAndPreviewFiles(files) {
             const img = new Image();
             img.onload = () => {
                 if (img.width < 2000) {
-                    alert(`❌ Ширина фото ${file.name} слишком маленькая. Минимум: 2000px. Ширина: ${img.width}px`);
+                    console.warn(`Ширина фото ${file.name} слишком маленькая. Минимум: 2000px. Ширина: ${img.width}px`);
                     photoInput.value = "";
                     filePreview.innerHTML = "";
                     return;
@@ -270,7 +270,7 @@ document.getElementById("submit-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
     if (!photoInput.files.length) {
-        alert("Добавьте хотя бы одно фото");
+        console.warn("Добавьте хотя бы одно фото");
         return;
     }
 
@@ -297,7 +297,7 @@ document.getElementById("submit-form").addEventListener("submit", async (e) => {
             </div>
         `;
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 });
 
@@ -484,16 +484,15 @@ document.getElementById("check-form").addEventListener("submit", async (e) => {
                     Array.from(event.target.files).forEach((file) => fd.append("originals", file));
                     try {
                         await api(`/api/photos/${photo.id}/originals`, { method: "POST", body: fd });
-                        alert("✅ Оригиналы загружены");
                         document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
                     } catch (err) {
-                        alert("❌ " + err.message);
+                        console.error(err.message);
                     }
                 });
             });
         });
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 });
 
@@ -536,7 +535,7 @@ async function reviewPhoto(fileId, status) {
         });
         await renderAdminList();
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 
@@ -547,10 +546,9 @@ async function deletePhotoOriginals(photoId) {
         await api(`/api/photos/${photoId}/originals`, {
             method: "DELETE",
         });
-        alert("✅ Оригинал удален");
         document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 
@@ -561,27 +559,22 @@ async function deleteOriginalFile(originalId) {
         await api(`/api/originals/${originalId}`, {
             method: "DELETE",
         });
-        alert("✅ Оригинал удален");
         document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 
 window.deleteOriginalFile = deleteOriginalFile;
 
 async function deleteUploadedPhoto(photoId) {
-    if (!confirm("Удалить это фото? Оригиналы, привязанные к фото, тоже будут удалены.")) {
-        return;
-    }
     try {
         await api(`/api/photos/${photoId}`, {
             method: "DELETE",
         });
-        alert("✅ Фото удалено");
         document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 
@@ -596,9 +589,8 @@ async function savePhotoComment(fileId) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ comment }),
         });
-        alert("Комментарий сохранен ✅");
     } catch (err) {
-        alert("❌ " + err.message);
+        console.error(err.message);
     }
 }
 
