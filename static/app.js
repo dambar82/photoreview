@@ -748,63 +748,76 @@ async function renderAdminList() {
 
         adminList.innerHTML = submissions.map((sub) => `
             <div class="submission-card" data-photo-count="${(sub.photos || []).length}">
-                ${(sub.photos || []).map((photo) => `
-                    <div class="admin-photo-item">
-                        <img
-                            src="${photo.thumbUrl || photo.url}"
-                            alt="Photo"
-                            class="admin-photo-thumb"
-                            style="margin-bottom: 8px;"
-                            onclick="openPhotoModal('${photo.url}')"
-                        >
-                        <span class="status-badge ${photo.isDeleted ? "status-deleted" : `status-${photo.status}`}">${photoStatusLabel(photo.isDeleted ? "deleted" : photo.status)}</span>
-                        <div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px;">
-                            <div><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
-                            <div><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
-                            ${photo.isDeleted && photo.deletedAt ? `<div><strong>Удалено:</strong> ${escapeHtml(photo.deletedAt)}</div>` : ""}
-                        </div>
-                        ${photo.isDeleted ? `
-                            <div class="photo-actions">
-                                <button class="btn-delete" onclick="purgeDeletedPhoto(${photo.id})">Удалить навсегда</button>
-                            </div>
-                        ` : `
-                            <div class="photo-actions">
-                                ${photo.status !== "approved" ? `<button class="btn-approve" onclick="reviewPhoto(${photo.id}, 'approved')">Одобрить</button>` : ""}
-                                ${photo.status !== "rejected" ? `<button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>` : ""}
-                                <button class="btn-delete" onclick="deleteUploadedPhoto(${photo.id})">Удалить фото</button>
-                            </div>
-                            <textarea
-                                class="photo-comment"
-                                id="photo-comment-${photo.id}"
-                                placeholder="Комментарий по этому фото"
-                            >${escapeHtml(photo.comment || "")}</textarea>
-                            <button class="photo-save" type="button" onclick="savePhotoComment(${photo.id})">Сохранить комментарий</button>
-                        `}
-                    </div>
-                `).join("")}
-
-                <div class="submission-info">
-                    <div class="submission-info-card">
-                        <strong>Имя:</strong> ${escapeHtml(sub.name)}<br>
-                        <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
-                        <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
-                        ${sub.phone ? `<strong>Телефон:</strong> ${escapeHtml(sub.phone)}<br>` : ""}
-                        <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}<br>
-                        ${sub.comment ? `<strong>Комментарий:</strong> ${escapeHtml(sub.comment)}<br>` : ""}
-                    </div>
-                </div>
-
-                ${sub.originals && sub.originals.length > 0 ? `
-                    <div class="submission-originals">
-                        <strong style="color: var(--color-primary);">Оригинал (${sub.originals.length}):</strong><br>
-                        ${sub.originals.map((orig) => `
-                            <div class="submission-originals-row">
-                                <span class="submission-originals-size">${escapeHtml(orig.name)} (${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
-                                <a href="${orig.url}" download="${escapeHtml(orig.name)}" class="submission-originals-link">Скачать</a>
+                <div class="submission-main">
+                    <div class="submission-photos">
+                        ${(sub.photos || []).map((photo) => `
+                            <div class="admin-photo-item">
+                                <img
+                                    src="${photo.thumbUrl || photo.url}"
+                                    alt="Photo"
+                                    class="admin-photo-thumb"
+                                    style="margin-bottom: 8px;"
+                                    onclick="openPhotoModal('${photo.url}')"
+                                >
+                                <span class="status-badge ${photo.isDeleted ? "status-deleted" : `status-${photo.status}`}">${photoStatusLabel(photo.isDeleted ? "deleted" : photo.status)}</span>
+                                <div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px;">
+                                    <div><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
+                                    <div><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
+                                    ${photo.isDeleted && photo.deletedAt ? `<div><strong>Удалено:</strong> ${escapeHtml(photo.deletedAt)}</div>` : ""}
+                                </div>
+                                ${photo.isDeleted ? `
+                                    <div class="photo-actions">
+                                        <button class="btn-delete" onclick="purgeDeletedPhoto(${photo.id})">Удалить навсегда</button>
+                                    </div>
+                                ` : `
+                                    <div class="photo-actions">
+                                        ${photo.status !== "approved" ? `<button class="btn-approve" onclick="reviewPhoto(${photo.id}, 'approved')">Одобрить</button>` : ""}
+                                        ${photo.status !== "rejected" ? `<button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>` : ""}
+                                        <button class="btn-delete" onclick="deleteUploadedPhoto(${photo.id})">Удалить фото</button>
+                                    </div>
+                                    ${photo.status === "approved"
+                                        ? (photo.comment
+                                            ? `
+                                                <textarea class="photo-comment photo-comment-readonly" id="photo-comment-${photo.id}" readonly>${escapeHtml(photo.comment || "")}</textarea>
+                                            `
+                                            : "")
+                                        : `
+                                            <textarea
+                                                class="photo-comment"
+                                                id="photo-comment-${photo.id}"
+                                                placeholder="Комментарий по этому фото"
+                                            >${escapeHtml(photo.comment || "")}</textarea>
+                                            <button class="photo-save" type="button" onclick="savePhotoComment(${photo.id})">Сохранить комментарий</button>
+                                        `
+                                    }
+                                `}
+                                ${photo.originals && photo.originals.length > 0 ? `
+                                    <div class="originals-list">
+                                        <div class="originals-title">Оригинал:</div>
+                                        ${photo.originals.map((orig) => `
+                                            <div class="originals-item">
+                                                <a href="${orig.url}" target="_blank" rel="noopener" class="original-link">${escapeHtml(orig.name)}</a>
+                                                <span class="original-size">(${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
+                                            </div>
+                                        `).join("")}
+                                    </div>
+                                ` : ""}
                             </div>
                         `).join("")}
                     </div>
-                ` : ""}
+
+                    <div class="submission-info">
+                        <div class="submission-info-card">
+                            <strong>Имя:</strong> ${escapeHtml(sub.name)}<br>
+                            <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
+                            <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
+                            ${sub.phone ? `<strong>Телефон:</strong> ${escapeHtml(sub.phone)}<br>` : ""}
+                            <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}<br>
+                            ${sub.comment ? `<strong>Комментарий:</strong> ${escapeHtml(sub.comment)}<br>` : ""}
+                        </div>
+                    </div>
+                </div>
+
             </div>
         `).join("");
     } catch (err) {

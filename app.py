@@ -546,7 +546,7 @@ def submit_photos():
     safe_email = quote(email, safe="")
     queue_email_notification(
         ADMIN_NOTIFY_EMAIL,
-        "PhotoReview: новая загрузка фото",
+        "Книга ГИБДД 90: новая загрузка фото",
         (
             f"Пользователь: {name}\n"
             f"Email: {email}\n"
@@ -684,7 +684,7 @@ def upload_user_photos(user_email: str):
     safe_email = quote(email, safe="")
     queue_email_notification(
         ADMIN_NOTIFY_EMAIL,
-        "PhotoReview: пользователь загрузил новые фото",
+        "Книга ГИБДД 90: пользователь загрузил новые фото",
         (
             f"Пользователь: {row['name'] or ''}\n"
             f"Email: {email}\n"
@@ -1219,13 +1219,12 @@ def admin_review_photo(file_id: int):
         comment_part = f"\nКомментарий администратора: {comment.strip()}" if comment.strip() else ""
         queue_email_notification(
             user_email,
-            f"PhotoReview: фото #{file_id} — {photo_status_label_ru(new_status)}",
+            f"Книга ГИБДД 90: фото #{file_id} — {photo_status_label_ru(new_status)}",
             (
                 f"Здравствуйте, {file_row['name'] or 'пользователь'}!\n\n"
                 f"Администратор обновил статус вашего фото.\n"
                 f"Фото: {file_row['file_name']}\n"
                 f"Новый статус: {photo_status_label_ru(new_status)}\n"
-                f"Статус заявки: {photo_status_label_ru(submission_status)}"
                 f"{comment_part}\n\n"
                 f"Личный кабинет: {public_url(f'/user/{safe_email}')}\n"
             ),
@@ -1273,7 +1272,7 @@ def admin_save_photo_comment(file_id: int):
         safe_email = quote(user_email, safe="")
         queue_email_notification(
             user_email,
-            f"PhotoReview: комментарий по фото #{file_id}",
+            f"Книга ГИБДД 90: комментарий по фото #{file_id}",
             (
                 f"Здравствуйте, {file_row['name'] or 'пользователь'}!\n\n"
                 f"Администратор оставил комментарий по вашему фото.\n"

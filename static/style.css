@@ -442,6 +442,14 @@
     min-height: 60px;
 }
 
+.photo-comment-readonly {
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    cursor: default;
+    resize: none;
+}
+
 .photo-save {
     width: 100%;
     margin-top: 8px;
@@ -606,35 +614,34 @@
 }
 
 #admin-list .submission-card {
+    display: block;
+}
+
+#admin-list .submission-main {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+#admin-list .submission-photos {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
     align-items: start;
 }
 
-#admin-list .submission-card > .submission-info {
-    grid-column: 1 / -1;
-    margin: 0;
-    height: fit-content;
-}
-
-#admin-list .submission-card[data-photo-count="1"] > .submission-info {
-    grid-column: 2 / 4;
-    grid-row: 1;
-}
-
-#admin-list .submission-card[data-photo-count="2"] > .submission-info {
-    grid-column: 3 / 4;
-    grid-row: 1;
-}
-
 #admin-list .submission-card > .submission-originals {
-    grid-column: 1 / -1;
     margin-top: 10px;
     padding: 10px;
     background: var(--color-bg-muted);
     border: 1px solid var(--color-border);
     border-radius: 8px;
+}
+
+#admin-list .submission-info {
+    margin: 0;
+    height: fit-content;
 }
 
 #admin-list .submission-info-card {
@@ -666,36 +673,18 @@
 }
 
 @media (max-width: 1024px) {
-    #admin-list .submission-card {
+    #admin-list .submission-main {
+        grid-template-columns: 1fr;
+    }
+
+    #admin-list .submission-photos {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    #admin-list .submission-card > .submission-info {
-        grid-column: 1 / -1;
-        grid-row: auto;
-    }
-
-    #admin-list .submission-card[data-photo-count="1"] > .submission-info,
-    #admin-list .submission-card[data-photo-count="2"] > .submission-info {
-        grid-column: 1 / -1;
-        grid-row: auto;
     }
 }
 
 @media (max-width: 768px) {
-    #admin-list .submission-card {
+    #admin-list .submission-photos {
         grid-template-columns: 1fr;
-    }
-
-    #admin-list .submission-card > .submission-info {
-        grid-column: 1 / -1;
-        grid-row: auto;
-    }
-
-    #admin-list .submission-card[data-photo-count="1"] > .submission-info,
-    #admin-list .submission-card[data-photo-count="2"] > .submission-info {
-        grid-column: 1 / -1;
-        grid-row: auto;
     }
 }
 
