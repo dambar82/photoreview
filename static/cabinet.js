@@ -108,7 +108,6 @@ function applyAdminViewMode(user) {
 
     const fields = profileForm?.querySelectorAll("input, select, textarea") || [];
     fields.forEach((el) => {
-        if (el.id === "profile-email") return;
         el.setAttribute("disabled", "disabled");
     });
 
@@ -363,16 +362,18 @@ function renderPhotos(user) {
                 <strong>Статус:</strong>
                 <span class="status-badge status-${photo.status || "pending"}">${photoStatusLabel(photo.status)}</span>
                 ${photo.comment ? `<br><strong>Комментарий:</strong> ${escapeHtml(photo.comment)}` : ""}
-                <div class="photo-action-group">
-                    ${photo.status === "approved" ? `
-                        ${(!photo.originals || photo.originals.length === 0) ? `
-                            <input type="file" id="upload-originals-photo-${photo.id}" data-photo-id="${photo.id}" multiple style="display: none;">
-                            <button type="button" class="btn-mini btn-mini-primary" onclick="document.getElementById('upload-originals-photo-${photo.id}').click()">
-                                Загрузить оригинал
-                            </button>
+                ${isAdminView ? "" : `
+                    <div class="photo-action-group">
+                        ${photo.status === "approved" ? `
+                            ${(!photo.originals || photo.originals.length === 0) ? `
+                                <input type="file" id="upload-originals-photo-${photo.id}" data-photo-id="${photo.id}" multiple style="display: none;">
+                                <button type="button" class="btn-mini btn-mini-primary" onclick="document.getElementById('upload-originals-photo-${photo.id}').click()">
+                                    Загрузить оригинал
+                                </button>
+                            ` : ""}
                         ` : ""}
-                    ` : ""}
-                </div>
+                    </div>
+                `}
                 ${photo.originals && photo.originals.length > 0 ? `
                     <div class="originals-list">
                         <div class="originals-title">Оригинал:</div>
@@ -380,19 +381,25 @@ function renderPhotos(user) {
                             <div class="originals-item">
                                 <a href="${orig.url}" target="_blank" rel="noopener" class="original-link">${escapeHtml(orig.name)}</a>
                                 <span class="original-size">(${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
-                                <button type="button" class="orig-delete-x" onclick="deleteOriginalFile(${orig.id})" title="Удалить оригинал">✕</button>
+                                ${isAdminView ? "" : `<button type="button" class="orig-delete-x" onclick="deleteOriginalFile(${orig.id})" title="Удалить оригинал">✕</button>`}
                             </div>
                         `).join("")}
                     </div>
                 ` : ""}
-                <div class="photo-delete-row">
-                    <button type="button" class="btn-mini btn-mini-muted" onclick="deleteUploadedPhoto(${photo.id})">
-                        Удалить фото
-                    </button>
-                </div>
+                ${isAdminView ? "" : `
+                    <div class="photo-delete-row">
+                        <button type="button" class="btn-mini btn-mini-muted" onclick="deleteUploadedPhoto(${photo.id})">
+                            Удалить фото
+                        </button>
+                    </div>
+                `}
             </div>
         </div>
     `).join("");
+
+    if (isAdminView) {
+        return;
+    }
 
     photos.forEach((photo) => {
         if (photo.status !== "approved") return;

@@ -147,6 +147,12 @@ document.addEventListener("keydown", (e) => {
         setModalScale(modalScale - 0.2);
     }
 });
+modalStage?.addEventListener("wheel", (e) => {
+    if (!modal.classList.contains("open")) return;
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.15 : -0.15;
+    setModalScale(modalScale + delta);
+}, { passive: false });
 
 window.openPhotoModal = openPhotoModal;
 
