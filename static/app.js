@@ -1,5 +1,10 @@
 let currentFilter = "all";
 let modalScale = 1;
+let modalOffsetX = 0;
+let modalOffsetY = 0;
+let isModalDragging = false;
+let modalDragStartX = 0;
+let modalDragStartY = 0;
 const isAdminRoute = Boolean(window.APP_CONTEXT && window.APP_CONTEXT.adminMode);
 
 const modal = document.getElementById("photo-modal");
@@ -36,13 +41,19 @@ async function api(url, options = {}) {
 
 function setModalScale(scale) {
     modalScale = Math.max(0.2, Math.min(4, scale));
-    modalImage.style.transform = `scale(${modalScale})`;
+    applyModalTransform();
     zoomResetBtn.textContent = `${Math.round(modalScale * 100)}%`;
+}
+
+function applyModalTransform() {
+    modalImage.style.transform = `translate(${modalOffsetX}px, ${modalOffsetY}px) scale(${modalScale})`;
 }
 
 function openPhotoModal(src) {
     if (!src) return;
     modalImage.src = src;
+    modalOffsetX = 0;
+    modalOffsetY = 0;
     setModalScale(1);
     modal.classList.add("open");
     document.body.style.overflow = "hidden";
@@ -52,12 +63,60 @@ function closePhotoModal() {
     modal.classList.remove("open");
     modalImage.src = "";
     document.body.style.overflow = "";
+    isModalDragging = false;
+}
+
+function beginModalDrag(clientX, clientY) {
+    if (!modal.classList.contains("open")) return;
+    if (modalScale <= 1) return;
+    isModalDragging = true;
+    modalDragStartX = clientX - modalOffsetX;
+    modalDragStartY = clientY - modalOffsetY;
+    modalImage.style.cursor = "grabbing";
+}
+
+function moveModalDrag(clientX, clientY) {
+    if (!isModalDragging) return;
+    modalOffsetX = clientX - modalDragStartX;
+    modalOffsetY = clientY - modalDragStartY;
+    applyModalTransform();
+}
+
+function endModalDrag() {
+    if (!isModalDragging) return;
+    isModalDragging = false;
+    modalImage.style.cursor = modalScale > 1 ? "grab" : "";
 }
 
 zoomInBtn.addEventListener("click", () => setModalScale(modalScale + 0.2));
 zoomOutBtn.addEventListener("click", () => setModalScale(modalScale - 0.2));
 zoomResetBtn.addEventListener("click", () => setModalScale(1));
 modalClose.addEventListener("click", closePhotoModal);
+modalImage.addEventListener("mousedown", (e) => {
+    beginModalDrag(e.clientX, e.clientY);
+});
+document.addEventListener("mousemove", (e) => {
+    moveModalDrag(e.clientX, e.clientY);
+});
+document.addEventListener("mouseup", () => {
+    endModalDrag();
+});
+modalImage.addEventListener("touchstart", (e) => {
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    beginModalDrag(touch.clientX, touch.clientY);
+}, { passive: true });
+modalImage.addEventListener("touchmove", (e) => {
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    if (isModalDragging) {
+        e.preventDefault();
+    }
+    moveModalDrag(touch.clientX, touch.clientY);
+}, { passive: false });
+modalImage.addEventListener("touchend", () => {
+    endModalDrag();
+});
 modal.addEventListener("click", (e) => {
     if (e.target === modal) closePhotoModal();
 });
@@ -331,6 +390,12 @@ function photoStatusLabel(status) {
     return "⏳ На проверке";
 }
 
+function formatPhotoSize(bytes) {
+    const size = Number(bytes || 0);
+    if (!size) return "0 МБ";
+    return `${(size / 1024 / 1024).toFixed(2)} МБ`;
+}
+
 function activityLabel(actionType) {
     const labels = {
         submission_created: "Создание заявки",
@@ -427,6 +492,8 @@ function renderUserCards(submissions) {
                 <div class="user-photo-card">
                     <img src="${photo.url}" alt="Photo">
                     <div style="font-size: 13px; margin-top: 6px; color: var(--color-text-secondary);">
+                        <div><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
+                        <div><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
                         <span class="status-badge status-${photo.status || "pending"}">${photoStatusLabel(photo.status)}</span>
                         ${photo.comment ? `<div style="margin-top: 6px;"><strong>Комментарий:</strong> ${escapeHtml(photo.comment)}</div>` : ""}
                         <div class="photo-action-group">
@@ -659,6 +726,10 @@ async function renderAdminList() {
                             onclick="openPhotoModal('${photo.url}')"
                         >
                         <span class="status-badge status-${photo.status}">${photoStatusLabel(photo.status)}</span>
+                        <div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px;">
+                            <div><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
+                            <div><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
+                        </div>
                         <div class="photo-actions">
                             <button class="btn-approve" onclick="reviewPhoto(${photo.id}, 'approved')">Одобрить</button>
                             <button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>

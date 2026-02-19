@@ -1,5 +1,10 @@
 let currentUser = null;
 let modalScale = 1;
+let modalOffsetX = 0;
+let modalOffsetY = 0;
+let isModalDragging = false;
+let modalDragStartX = 0;
+let modalDragStartY = 0;
 let isProfileOpen = false;
 const isAdminView = Boolean(window.CABINET_CONTEXT && window.CABINET_CONTEXT.adminView);
 let cabinetValidationInProgress = false;
@@ -192,13 +197,19 @@ async function validateAndPreviewCabinetFiles(files) {
 
 function setModalScale(scale) {
     modalScale = Math.max(0.2, Math.min(4, scale));
-    modalImage.style.transform = `scale(${modalScale})`;
+    applyModalTransform();
     zoomResetBtn.textContent = `${Math.round(modalScale * 100)}%`;
+}
+
+function applyModalTransform() {
+    modalImage.style.transform = `translate(${modalOffsetX}px, ${modalOffsetY}px) scale(${modalScale})`;
 }
 
 function openPhotoModal(src) {
     if (!src) return;
     modalImage.src = src;
+    modalOffsetX = 0;
+    modalOffsetY = 0;
     setModalScale(1);
     modal.classList.add("open");
     document.body.style.overflow = "hidden";
@@ -208,12 +219,60 @@ function closePhotoModal() {
     modal.classList.remove("open");
     modalImage.src = "";
     document.body.style.overflow = "";
+    isModalDragging = false;
+}
+
+function beginModalDrag(clientX, clientY) {
+    if (!modal.classList.contains("open")) return;
+    if (modalScale <= 1) return;
+    isModalDragging = true;
+    modalDragStartX = clientX - modalOffsetX;
+    modalDragStartY = clientY - modalOffsetY;
+    modalImage.style.cursor = "grabbing";
+}
+
+function moveModalDrag(clientX, clientY) {
+    if (!isModalDragging) return;
+    modalOffsetX = clientX - modalDragStartX;
+    modalOffsetY = clientY - modalDragStartY;
+    applyModalTransform();
+}
+
+function endModalDrag() {
+    if (!isModalDragging) return;
+    isModalDragging = false;
+    modalImage.style.cursor = modalScale > 1 ? "grab" : "";
 }
 
 zoomInBtn.addEventListener("click", () => setModalScale(modalScale + 0.2));
 zoomOutBtn.addEventListener("click", () => setModalScale(modalScale - 0.2));
 zoomResetBtn.addEventListener("click", () => setModalScale(1));
 modalClose.addEventListener("click", closePhotoModal);
+modalImage.addEventListener("mousedown", (e) => {
+    beginModalDrag(e.clientX, e.clientY);
+});
+document.addEventListener("mousemove", (e) => {
+    moveModalDrag(e.clientX, e.clientY);
+});
+document.addEventListener("mouseup", () => {
+    endModalDrag();
+});
+modalImage.addEventListener("touchstart", (e) => {
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    beginModalDrag(touch.clientX, touch.clientY);
+}, { passive: true });
+modalImage.addEventListener("touchmove", (e) => {
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    if (isModalDragging) {
+        e.preventDefault();
+    }
+    moveModalDrag(touch.clientX, touch.clientY);
+}, { passive: false });
+modalImage.addEventListener("touchend", () => {
+    endModalDrag();
+});
 modal.addEventListener("click", (e) => {
     if (e.target === modal) closePhotoModal();
 });
@@ -273,6 +332,12 @@ function photoStatusLabel(status) {
     return "⏳ На проверке";
 }
 
+function formatPhotoSize(bytes) {
+    const size = Number(bytes || 0);
+    if (!size) return "0 МБ";
+    return `${(size / 1024 / 1024).toFixed(2)} МБ`;
+}
+
 function renderPhotos(user) {
     const photos = user.photos || [];
     if (!photos.length) {
@@ -285,6 +350,8 @@ function renderPhotos(user) {
             <img src="${photo.url}" alt="Photo" class="admin-photo-thumb" onclick="window.openPhotoModal('${photo.url}')">
             <div class="submission-info">
                 <strong>Файл:</strong> ${escapeHtml(photo.name)}<br>
+                <strong>Размер:</strong> ${formatPhotoSize(photo.size)}<br>
+                <strong>Дата:</strong> ${escapeHtml(user.createdAt || "")}<br>
                 <strong>Статус:</strong>
                 <span class="status-badge status-${photo.status || "pending"}">${photoStatusLabel(photo.status)}</span>
                 ${photo.comment ? `<br><strong>Комментарий:</strong> ${escapeHtml(photo.comment)}` : ""}
