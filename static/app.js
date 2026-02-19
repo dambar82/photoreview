@@ -15,6 +15,7 @@ const modalClose = document.getElementById("photo-modal-close");
 const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const zoomResetBtn = document.getElementById("zoom-reset-btn");
+const savePhotoBtn = document.getElementById("save-photo-btn");
 const openNewTabBtn = document.getElementById("open-new-tab-btn");
 const activityDayFilter = document.getElementById("activity-day-filter");
 const activityDistrictFilter = document.getElementById("activity-district-filter");
@@ -98,6 +99,19 @@ zoomResetBtn.addEventListener("click", () => setModalScale(1));
 openNewTabBtn?.addEventListener("click", () => {
     if (!modalOriginalUrl) return;
     window.open(modalOriginalUrl, "_blank", "noopener,noreferrer");
+});
+savePhotoBtn?.addEventListener("click", () => {
+    if (!modalOriginalUrl) return;
+    const directUrl = modalOriginalUrl.split("?")[0];
+    const fallbackName = "photo.jpg";
+    const fileName = decodeURIComponent((directUrl.split("/").pop() || fallbackName).trim()) || fallbackName;
+    const link = document.createElement("a");
+    link.href = modalOriginalUrl;
+    link.download = fileName;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
 });
 modalClose.addEventListener("click", closePhotoModal);
 modalImage.addEventListener("mousedown", (e) => {
@@ -746,7 +760,57 @@ async function renderAdminList() {
             return;
         }
 
-        adminList.innerHTML = submissions.map((sub) => `
+        adminList.innerHTML = submissions.map((sub) => currentFilter === "approved" ? `
+            <div class="submission-card submission-card-approved-list" data-photo-count="${(sub.photos || []).length}">
+                ${(sub.photos || []).map((photo) => `
+                    <div class="approved-photo-row admin-photo-item">
+                        <button
+                            type="button"
+                            class="btn-delete-corner"
+                            onclick="${photo.isDeleted ? `purgeDeletedPhoto(${photo.id})` : `deleteUploadedPhoto(${photo.id})`}"
+                            title="${photo.isDeleted ? "Удалить навсегда" : "Удалить фото"}"
+                        >✕</button>
+                        <img
+                            src="${photo.thumbUrl || photo.url}"
+                            alt="Photo"
+                            class="admin-photo-thumb approved-photo-thumb"
+                            onclick="openPhotoModal('${photo.url}')"
+                        >
+                        <div class="approved-photo-meta">
+                            <span class="status-badge ${photo.isDeleted ? "status-deleted" : `status-${photo.status}`}">${photoStatusLabel(photo.isDeleted ? "deleted" : photo.status)}</span>
+                            <div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px;">
+                                <div><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
+                                <div><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
+                            </div>
+                            ${photo.comment ? `<div class="approved-comment-box">${escapeHtml(photo.comment)}</div>` : ""}
+                            ${photo.isDeleted ? `` : `
+                                <div class="photo-actions">
+                                    <button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>
+                                </div>
+                            `}
+                            ${photo.originals && photo.originals.length > 0 ? `
+                                <div class="originals-list">
+                                    <div class="originals-title">Оригинал:</div>
+                                    ${photo.originals.map((orig) => `
+                                        <div class="originals-item">
+                                            <a href="${orig.url}" target="_blank" rel="noopener" class="original-link">${escapeHtml(orig.name)}</a>
+                                            <span class="original-size">(${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
+                                        </div>
+                                    `).join("")}
+                                </div>
+                            ` : ""}
+                        </div>
+                        <div class="submission-info">
+                            <div class="submission-info-card">
+                                <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
+                                <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
+                                <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}
+                            </div>
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        ` : `
             <div class="submission-card" data-photo-count="${(sub.photos || []).length}">
                 <div class="submission-main">
                     <div class="submission-photos">
@@ -810,12 +874,9 @@ async function renderAdminList() {
 
                     <div class="submission-info">
                         <div class="submission-info-card">
-                            <strong>Имя:</strong> ${escapeHtml(sub.name)}<br>
                             <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
                             <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
-                            ${sub.phone ? `<strong>Телефон:</strong> ${escapeHtml(sub.phone)}<br>` : ""}
-                            <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}<br>
-                            ${sub.comment ? `<strong>Комментарий:</strong> ${escapeHtml(sub.comment)}<br>` : ""}
+                            <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}
                         </div>
                     </div>
                 </div>

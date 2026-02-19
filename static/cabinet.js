@@ -36,6 +36,7 @@ const modalClose = document.getElementById("photo-modal-close");
 const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const zoomResetBtn = document.getElementById("zoom-reset-btn");
+const savePhotoBtn = document.getElementById("save-photo-btn");
 const openNewTabBtn = document.getElementById("open-new-tab-btn");
 
 function filesSignature(files) {
@@ -253,6 +254,19 @@ zoomResetBtn.addEventListener("click", () => setModalScale(1));
 openNewTabBtn?.addEventListener("click", () => {
     if (!modalOriginalUrl) return;
     window.open(modalOriginalUrl, "_blank", "noopener,noreferrer");
+});
+savePhotoBtn?.addEventListener("click", () => {
+    if (!modalOriginalUrl) return;
+    const directUrl = modalOriginalUrl.split("?")[0];
+    const fallbackName = "photo.jpg";
+    const fileName = decodeURIComponent((directUrl.split("/").pop() || fallbackName).trim()) || fallbackName;
+    const link = document.createElement("a");
+    link.href = modalOriginalUrl;
+    link.download = fileName;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
 });
 modalClose.addEventListener("click", closePhotoModal);
 modalImage.addEventListener("mousedown", (e) => {
