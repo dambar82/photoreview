@@ -436,10 +436,19 @@
     line-height: 1;
     cursor: pointer;
     z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease-in-out;
 }
 
 .btn-delete-corner:hover {
     opacity: 0.9;
+}
+
+.admin-photo-item:hover .btn-delete-corner,
+.admin-photo-item:focus-within .btn-delete-corner {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .photo-actions {
