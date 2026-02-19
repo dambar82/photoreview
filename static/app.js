@@ -590,7 +590,13 @@ async function deleteUploadedPhoto(photoId) {
         await api(`/api/photos/${photoId}`, {
             method: "DELETE",
         });
-        document.getElementById("check-form").dispatchEvent(new Event("submit", { cancelable: true }));
+        const adminTab = document.getElementById("admin-tab");
+        const isAdminActive = isAdminRoute || Boolean(adminTab && adminTab.classList.contains("active"));
+        if (isAdminActive) {
+            await renderAdminList();
+            return;
+        }
+        document.getElementById("check-form")?.dispatchEvent(new Event("submit", { cancelable: true }));
     } catch (err) {
         console.error(err.message);
     }
@@ -656,6 +662,7 @@ async function renderAdminList() {
                         <div class="photo-actions">
                             <button class="btn-approve" onclick="reviewPhoto(${photo.id}, 'approved')">Одобрить</button>
                             <button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>
+                            <button class="btn-delete" onclick="deleteUploadedPhoto(${photo.id})">Удалить фото</button>
                         </div>
                         <textarea
                             class="photo-comment"
