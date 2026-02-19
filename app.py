@@ -158,6 +158,8 @@ def init_db() -> None:
                 thumb_path TEXT,
                 file_size INTEGER NOT NULL,
                 is_original INTEGER NOT NULL DEFAULT 0,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                deleted_at TEXT,
                 review_status TEXT NOT NULL DEFAULT 'pending',
                 review_comment TEXT NOT NULL DEFAULT '',
                 parent_photo_id INTEGER,
@@ -191,6 +193,10 @@ def init_db() -> None:
             conn.execute("ALTER TABLE files ADD COLUMN parent_photo_id INTEGER")
         if "thumb_path" not in file_columns:
             conn.execute("ALTER TABLE files ADD COLUMN thumb_path TEXT")
+        if "is_deleted" not in file_columns:
+            conn.execute("ALTER TABLE files ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+        if "deleted_at" not in file_columns:
+            conn.execute("ALTER TABLE files ADD COLUMN deleted_at TEXT")
         conn.commit()
 
 
@@ -265,12 +271,20 @@ def file_to_payload(row: sqlite3.Row) -> dict:
         "status": row["review_status"] if row["review_status"] else "pending",
         "comment": row["review_comment"] or "",
         "parentPhotoId": row["parent_photo_id"],
+        "isDeleted": bool(row["is_deleted"]) if "is_deleted" in row.keys() else False,
+        "deletedAt": row["deleted_at"] if "deleted_at" in row.keys() else None,
     }
 
 
 def recalc_submission_status(conn: sqlite3.Connection, submission_id: int) -> str:
     rows = conn.execute(
-        "SELECT review_status FROM files WHERE submission_id = ? AND is_original = 0",
+        """
+        SELECT review_status
+        FROM files
+        WHERE submission_id = ?
+          AND is_original = 0
+          AND COALESCE(is_deleted, 0) = 0
+        """,
         (submission_id,),
     ).fetchall()
     statuses = [r["review_status"] for r in rows]
@@ -287,17 +301,19 @@ def recalc_submission_status(conn: sqlite3.Connection, submission_id: int) -> st
     return status
 
 
-def build_submission_payload(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
+def build_submission_payload(conn: sqlite3.Connection, row: sqlite3.Row, include_deleted: bool = False) -> dict:
     files = conn.execute(
         """
         SELECT id, file_name, file_path, thumb_path, file_size, is_original, review_status, review_comment
-             , parent_photo_id
+             , parent_photo_id, is_deleted, deleted_at
         FROM files
         WHERE submission_id = ?
         ORDER BY id
         """,
         (row["id"],),
     ).fetchall()
+    if not include_deleted:
+        files = [f for f in files if (f["is_deleted"] or 0) == 0]
     photos_rows = [f for f in files if f["is_original"] == 0]
     originals_rows = [f for f in files if f["is_original"] == 1]
 
@@ -493,7 +509,6 @@ def submit_photos():
                 """,
                 (name, district, phone, comment, now_ru(), submission_id),
             )
-            remove_submission_files(conn, submission_id, originals_only=False)
             log_activity(
                 conn,
                 actor_email=email,
@@ -733,7 +748,7 @@ def upload_originals_for_photo(photo_id: int):
     with get_db_connection() as conn:
         photo = conn.execute(
             """
-            SELECT id, submission_id, is_original, review_status
+            SELECT id, submission_id, is_original, review_status, COALESCE(is_deleted, 0) AS is_deleted
             FROM files
             WHERE id = ?
             """,
@@ -744,11 +759,13 @@ def upload_originals_for_photo(photo_id: int):
             return jsonify({"error": "Фото не найдено"}), 404
         if photo["is_original"] == 1:
             return jsonify({"error": "Нельзя загружать оригиналы для оригинала"}), 400
+        if photo["is_deleted"] == 1:
+            return jsonify({"error": "Фото находится в корзине"}), 400
         if photo["review_status"] != "approved":
             return jsonify({"error": "Оригиналы можно загрузить только для одобренного фото"}), 400
 
         existing = conn.execute(
-            "SELECT file_path FROM files WHERE parent_photo_id = ? AND is_original = 1",
+            "SELECT file_path FROM files WHERE parent_photo_id = ? AND is_original = 1 AND COALESCE(is_deleted, 0) = 0",
             (photo_id,),
         ).fetchall()
         for row in existing:
@@ -758,7 +775,7 @@ def upload_originals_for_photo(photo_id: int):
             except OSError:
                 pass
         conn.execute(
-            "DELETE FROM files WHERE parent_photo_id = ? AND is_original = 1",
+            "DELETE FROM files WHERE parent_photo_id = ? AND is_original = 1 AND COALESCE(is_deleted, 0) = 0",
             (photo_id,),
         )
 
@@ -804,7 +821,7 @@ def delete_originals_for_photo(photo_id: int):
     with get_db_connection() as conn:
         photo = conn.execute(
             """
-            SELECT id, submission_id, is_original
+            SELECT id, submission_id, is_original, COALESCE(is_deleted, 0) AS is_deleted
             FROM files
             WHERE id = ?
             """,
@@ -814,21 +831,16 @@ def delete_originals_for_photo(photo_id: int):
             return jsonify({"error": "Фото не найдено"}), 404
         if photo["is_original"] == 1:
             return jsonify({"error": "Нельзя удалять оригиналы для оригинала"}), 400
-
-        existing = conn.execute(
-            "SELECT file_path FROM files WHERE parent_photo_id = ? AND is_original = 1",
-            (photo_id,),
-        ).fetchall()
-        for row in existing:
-            try:
-                file_name = Path(str(row["file_path"]).replace("\\", "/")).name
-                (UPLOADS_DIR / file_name).unlink(missing_ok=True)
-            except OSError:
-                pass
+        if photo["is_deleted"] == 1:
+            return jsonify({"error": "Фото находится в корзине"}), 400
 
         conn.execute(
-            "DELETE FROM files WHERE parent_photo_id = ? AND is_original = 1",
-            (photo_id,),
+            """
+            UPDATE files
+            SET is_deleted = 1, deleted_at = ?
+            WHERE parent_photo_id = ? AND is_original = 1 AND COALESCE(is_deleted, 0) = 0
+            """,
+            (now_ru(), photo_id),
         )
 
         submission_row = conn.execute(
@@ -859,7 +871,7 @@ def delete_single_original(original_id: int):
     with get_db_connection() as conn:
         original = conn.execute(
             """
-            SELECT id, submission_id, is_original, parent_photo_id, file_path
+            SELECT id, submission_id, is_original, parent_photo_id, file_path, COALESCE(is_deleted, 0) AS is_deleted
             FROM files
             WHERE id = ?
             """,
@@ -869,14 +881,13 @@ def delete_single_original(original_id: int):
             return jsonify({"error": "Оригинал не найден"}), 404
         if original["is_original"] != 1:
             return jsonify({"error": "Файл не является оригиналом"}), 400
+        if original["is_deleted"] == 1:
+            return jsonify({"error": "Оригинал уже в корзине"}), 400
 
-        try:
-            file_name = Path(str(original["file_path"]).replace("\\", "/")).name
-            (UPLOADS_DIR / file_name).unlink(missing_ok=True)
-        except OSError:
-            pass
-
-        conn.execute("DELETE FROM files WHERE id = ?", (original_id,))
+        conn.execute(
+            "UPDATE files SET is_deleted = 1, deleted_at = ? WHERE id = ?",
+            (now_ru(), original_id),
+        )
 
         submission_row = conn.execute(
             "SELECT email, name, district FROM submissions WHERE id = ?",
@@ -907,7 +918,7 @@ def delete_uploaded_photo(photo_id: int):
     with get_db_connection() as conn:
         photo = conn.execute(
             """
-            SELECT id, submission_id, is_original
+            SELECT id, submission_id, is_original, COALESCE(is_deleted, 0) AS is_deleted
             FROM files
             WHERE id = ?
             """,
@@ -917,42 +928,23 @@ def delete_uploaded_photo(photo_id: int):
             return jsonify({"error": "Фото не найдено"}), 404
         if photo["is_original"] == 1:
             return jsonify({"error": "Это оригинал, используйте удаление оригинала"}), 400
+        if photo["is_deleted"] == 1:
+            return jsonify({"ok": True})
 
-        # Удаляем привязанные оригиналы
-        linked = conn.execute(
-            "SELECT file_path FROM files WHERE parent_photo_id = ? AND is_original = 1",
-            (photo_id,),
-        ).fetchall()
-        for row in linked:
-            try:
-                file_name = Path(str(row["file_path"]).replace("\\", "/")).name
-                (UPLOADS_DIR / file_name).unlink(missing_ok=True)
-            except OSError:
-                pass
+        deleted_at = now_ru()
         conn.execute(
-            "DELETE FROM files WHERE parent_photo_id = ? AND is_original = 1",
-            (photo_id,),
+            """
+            UPDATE files
+            SET is_deleted = 1, deleted_at = ?
+            WHERE parent_photo_id = ? AND is_original = 1 AND COALESCE(is_deleted, 0) = 0
+            """,
+            (deleted_at, photo_id),
         )
 
-        # Удаляем само фото
-        photo_path_row = conn.execute(
-            "SELECT file_path, thumb_path FROM files WHERE id = ?",
-            (photo_id,),
-        ).fetchone()
-        if photo_path_row:
-            try:
-                file_name = Path(str(photo_path_row["file_path"]).replace("\\", "/")).name
-                (UPLOADS_DIR / file_name).unlink(missing_ok=True)
-            except OSError:
-                pass
-            try:
-                thumb_raw = photo_path_row["thumb_path"]
-                if thumb_raw:
-                    thumb_name = Path(str(thumb_raw).replace("\\", "/")).name
-                    (THUMBS_DIR / thumb_name).unlink(missing_ok=True)
-            except OSError:
-                pass
-        conn.execute("DELETE FROM files WHERE id = ?", (photo_id,))
+        conn.execute(
+            "UPDATE files SET is_deleted = 1, deleted_at = ? WHERE id = ?",
+            (deleted_at, photo_id),
+        )
 
         recalc_submission_status(conn, photo["submission_id"])
 
@@ -967,7 +959,7 @@ def delete_uploaded_photo(photo_id: int):
                 actor_name=submission_row["name"] or "",
                 district=submission_row["district"] or "",
                 action_type="photo_deleted",
-                details=f"Удалил фото #{photo_id}",
+                details=f"Переместил фото #{photo_id} в корзину",
             )
 
         conn.commit()
@@ -976,6 +968,81 @@ def delete_uploaded_photo(photo_id: int):
             (photo["submission_id"],),
         ).fetchone()
         payload = build_submission_payload(conn, submission)
+
+    return jsonify({"ok": True, "submission": payload})
+
+
+@app.post("/api/photos/<int:photo_id>/purge")
+def purge_deleted_photo(photo_id: int):
+    if not is_admin():
+        return jsonify({"error": "Требуется авторизация администратора"}), 401
+
+    with get_db_connection() as conn:
+        photo = conn.execute(
+            """
+            SELECT id, submission_id, is_original, COALESCE(is_deleted, 0) AS is_deleted
+            FROM files
+            WHERE id = ?
+            """,
+            (photo_id,),
+        ).fetchone()
+        if not photo:
+            return jsonify({"error": "Фото не найдено"}), 404
+        if photo["is_original"] == 1:
+            return jsonify({"error": "Это оригинал, удаляйте фото целиком"}), 400
+        if photo["is_deleted"] != 1:
+            return jsonify({"error": "Фото не в корзине"}), 400
+
+        files_to_delete = conn.execute(
+            """
+            SELECT id, file_path, thumb_path
+            FROM files
+            WHERE id = ? OR (parent_photo_id = ? AND is_original = 1)
+            """,
+            (photo_id, photo_id),
+        ).fetchall()
+
+        for row in files_to_delete:
+            try:
+                file_name = Path(str(row["file_path"]).replace("\\", "/")).name
+                (UPLOADS_DIR / file_name).unlink(missing_ok=True)
+            except OSError:
+                pass
+            try:
+                thumb_raw = row["thumb_path"]
+                if thumb_raw:
+                    thumb_name = Path(str(thumb_raw).replace("\\", "/")).name
+                    (THUMBS_DIR / thumb_name).unlink(missing_ok=True)
+            except OSError:
+                pass
+
+        conn.execute(
+            "DELETE FROM files WHERE id = ? OR (parent_photo_id = ? AND is_original = 1)",
+            (photo_id, photo_id),
+        )
+
+        recalc_submission_status(conn, photo["submission_id"])
+
+        submission_row = conn.execute(
+            "SELECT email, name, district FROM submissions WHERE id = ?",
+            (photo["submission_id"],),
+        ).fetchone()
+        if submission_row:
+            log_activity(
+                conn,
+                actor_email=submission_row["email"],
+                actor_name=submission_row["name"] or "",
+                district=submission_row["district"] or "",
+                action_type="photo_deleted",
+                details=f"Удалил фото #{photo_id} из корзины навсегда",
+            )
+
+        conn.commit()
+        submission = conn.execute(
+            "SELECT * FROM submissions WHERE id = ?",
+            (photo["submission_id"],),
+        ).fetchone()
+        payload = build_submission_payload(conn, submission, include_deleted=True)
 
     return jsonify({"ok": True, "submission": payload})
 
@@ -998,6 +1065,7 @@ def admin_submissions():
             row_payload = build_submission_payload(
                 conn,
                 conn.execute("SELECT * FROM submissions WHERE id = ?", (row["id"],)).fetchone(),
+                include_deleted=True,
             )
             row_payload["status"] = status
             if status_filter == "all" or status == status_filter:
@@ -1119,7 +1187,8 @@ def admin_review_photo(file_id: int):
     with get_db_connection() as conn:
         file_row = conn.execute(
             """
-            SELECT f.id, f.submission_id, f.is_original, f.file_name, s.email, s.name
+            SELECT f.id, f.submission_id, f.is_original, f.file_name, COALESCE(f.is_deleted, 0) AS is_deleted
+                 , s.email, s.name
             FROM files f
             JOIN submissions s ON s.id = f.submission_id
             WHERE f.id = ?
@@ -1130,6 +1199,8 @@ def admin_review_photo(file_id: int):
             return jsonify({"error": "Фото не найдено"}), 404
         if file_row["is_original"] == 1:
             return jsonify({"error": "Нельзя модерировать оригиналы"}), 400
+        if file_row["is_deleted"] == 1:
+            return jsonify({"error": "Фото находится в корзине"}), 400
 
         conn.execute(
             """
@@ -1174,7 +1245,8 @@ def admin_save_photo_comment(file_id: int):
     with get_db_connection() as conn:
         file_row = conn.execute(
             """
-            SELECT f.id, f.is_original, f.file_name, f.review_status, f.review_comment, s.email, s.name
+            SELECT f.id, f.is_original, f.file_name, f.review_status, f.review_comment
+                 , COALESCE(f.is_deleted, 0) AS is_deleted, s.email, s.name
             FROM files f
             JOIN submissions s ON s.id = f.submission_id
             WHERE f.id = ?
@@ -1185,6 +1257,8 @@ def admin_save_photo_comment(file_id: int):
             return jsonify({"error": "Фото не найдено"}), 404
         if file_row["is_original"] == 1:
             return jsonify({"error": "Нельзя комментировать оригиналы"}), 400
+        if file_row["is_deleted"] == 1:
+            return jsonify({"error": "Фото находится в корзине"}), 400
 
         conn.execute(
             "UPDATE files SET review_comment = ? WHERE id = ?",

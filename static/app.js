@@ -393,6 +393,7 @@ function statusLabel(status) {
 }
 
 function photoStatusLabel(status) {
+    if (status === "deleted") return "🗑 В корзине";
     if (status === "approved") return "✅ Одобрено";
     if (status === "rejected") return "❌ Отклонено";
     return "⏳ На проверке";
@@ -679,6 +680,19 @@ async function deleteUploadedPhoto(photoId) {
 
 window.deleteUploadedPhoto = deleteUploadedPhoto;
 
+async function purgeDeletedPhoto(photoId) {
+    try {
+        await api(`/api/photos/${photoId}/purge`, {
+            method: "POST",
+        });
+        await renderAdminList();
+    } catch (err) {
+        console.error(err.message);
+    }
+}
+
+window.purgeDeletedPhoto = purgeDeletedPhoto;
+
 async function savePhotoComment(fileId) {
     const commentEl = document.getElementById(`photo-comment-${fileId}`);
     const comment = commentEl ? commentEl.value : "";
@@ -702,9 +716,13 @@ async function renderAdminList() {
         const submissions = (rawSubmissions || [])
             .map((sub) => {
                 const photos = Array.isArray(sub.photos) ? sub.photos : [];
-                const visiblePhotos = currentFilter === "all"
-                    ? photos
-                    : photos.filter((photo) => (photo.status || "pending") === currentFilter);
+                const visiblePhotos = photos.filter((photo) => {
+                    const isDeleted = Boolean(photo.isDeleted);
+                    if (currentFilter === "trash") return isDeleted;
+                    if (isDeleted) return false;
+                    if (currentFilter === "all") return true;
+                    return (photo.status || "pending") === currentFilter;
+                });
                 return {
                     ...sub,
                     photos: visiblePhotos,
@@ -733,22 +751,29 @@ async function renderAdminList() {
                             style="margin-bottom: 8px;"
                             onclick="openPhotoModal('${photo.url}')"
                         >
-                        <span class="status-badge status-${photo.status}">${photoStatusLabel(photo.status)}</span>
+                        <span class="status-badge ${photo.isDeleted ? "status-deleted" : `status-${photo.status}`}">${photoStatusLabel(photo.isDeleted ? "deleted" : photo.status)}</span>
                         <div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px;">
                             <div><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
                             <div><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
+                            ${photo.isDeleted && photo.deletedAt ? `<div><strong>Удалено:</strong> ${escapeHtml(photo.deletedAt)}</div>` : ""}
                         </div>
-                        <div class="photo-actions">
-                            <button class="btn-approve" onclick="reviewPhoto(${photo.id}, 'approved')">Одобрить</button>
-                            <button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>
-                            <button class="btn-delete" onclick="deleteUploadedPhoto(${photo.id})">Удалить фото</button>
-                        </div>
-                        <textarea
-                            class="photo-comment"
-                            id="photo-comment-${photo.id}"
-                            placeholder="Комментарий по этому фото"
-                        >${escapeHtml(photo.comment || "")}</textarea>
-                        <button class="photo-save" type="button" onclick="savePhotoComment(${photo.id})">Сохранить комментарий</button>
+                        ${photo.isDeleted ? `
+                            <div class="photo-actions">
+                                <button class="btn-delete" onclick="purgeDeletedPhoto(${photo.id})">Удалить навсегда</button>
+                            </div>
+                        ` : `
+                            <div class="photo-actions">
+                                ${photo.status !== "approved" ? `<button class="btn-approve" onclick="reviewPhoto(${photo.id}, 'approved')">Одобрить</button>` : ""}
+                                ${photo.status !== "rejected" ? `<button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>` : ""}
+                                <button class="btn-delete" onclick="deleteUploadedPhoto(${photo.id})">Удалить фото</button>
+                            </div>
+                            <textarea
+                                class="photo-comment"
+                                id="photo-comment-${photo.id}"
+                                placeholder="Комментарий по этому фото"
+                            >${escapeHtml(photo.comment || "")}</textarea>
+                            <button class="photo-save" type="button" onclick="savePhotoComment(${photo.id})">Сохранить комментарий</button>
+                        `}
                     </div>
                 `).join("")}
 

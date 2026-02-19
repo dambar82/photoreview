@@ -276,6 +276,11 @@
             color: white;
         }
 
+        .status-deleted {
+            background: #6b7280;
+            color: white;
+        }
+
         .admin-controls {
             margin-top: 15px;
             display: flex;
