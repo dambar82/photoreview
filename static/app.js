@@ -1,10 +1,11 @@
-let currentFilter = "all";
+let currentFilter = "pending";
 let modalScale = 1;
 let modalOffsetX = 0;
 let modalOffsetY = 0;
 let isModalDragging = false;
 let modalDragStartX = 0;
 let modalDragStartY = 0;
+let modalOriginalUrl = "";
 const isAdminRoute = Boolean(window.APP_CONTEXT && window.APP_CONTEXT.adminMode);
 
 const modal = document.getElementById("photo-modal");
@@ -14,6 +15,7 @@ const modalClose = document.getElementById("photo-modal-close");
 const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const zoomResetBtn = document.getElementById("zoom-reset-btn");
+const openNewTabBtn = document.getElementById("open-new-tab-btn");
 const activityDayFilter = document.getElementById("activity-day-filter");
 const activityDistrictFilter = document.getElementById("activity-district-filter");
 const activityApplyBtn = document.getElementById("activity-apply-btn");
@@ -51,6 +53,7 @@ function applyModalTransform() {
 
 function openPhotoModal(src) {
     if (!src) return;
+    modalOriginalUrl = src;
     modalImage.src = src;
     modalOffsetX = 0;
     modalOffsetY = 0;
@@ -62,6 +65,7 @@ function openPhotoModal(src) {
 function closePhotoModal() {
     modal.classList.remove("open");
     modalImage.src = "";
+    modalOriginalUrl = "";
     document.body.style.overflow = "";
     isModalDragging = false;
 }
@@ -91,6 +95,10 @@ function endModalDrag() {
 zoomInBtn.addEventListener("click", () => setModalScale(modalScale + 0.2));
 zoomOutBtn.addEventListener("click", () => setModalScale(modalScale - 0.2));
 zoomResetBtn.addEventListener("click", () => setModalScale(1));
+openNewTabBtn?.addEventListener("click", () => {
+    if (!modalOriginalUrl) return;
+    window.open(modalOriginalUrl, "_blank", "noopener,noreferrer");
+});
 modalClose.addEventListener("click", closePhotoModal);
 modalImage.addEventListener("mousedown", (e) => {
     beginModalDrag(e.clientX, e.clientY);
@@ -490,7 +498,7 @@ function renderUserCards(submissions) {
             <div class="user-photo-grid">
             ${(sub.photos || []).map((photo) => `
                 <div class="user-photo-card">
-                    <img src="${photo.url}" alt="Photo">
+                    <img src="${photo.thumbUrl || photo.url}" alt="Photo" onclick="openPhotoModal('${photo.url}')">
                     <div style="font-size: 13px; margin-top: 6px; color: var(--color-text-secondary);">
                         <div><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
                         <div><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
@@ -719,7 +727,7 @@ async function renderAdminList() {
                 ${(sub.photos || []).map((photo) => `
                     <div class="admin-photo-item">
                         <img
-                            src="${photo.url}"
+                            src="${photo.thumbUrl || photo.url}"
                             alt="Photo"
                             class="admin-photo-thumb"
                             style="margin-bottom: 8px;"
@@ -747,7 +755,7 @@ async function renderAdminList() {
                 <div class="submission-info">
                     <strong>Имя:</strong> ${escapeHtml(sub.name)}<br>
                     <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
-                    <strong>Email:</strong> ${escapeHtml(sub.email)}<br>
+                    <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
                     ${sub.phone ? `<strong>Телефон:</strong> ${escapeHtml(sub.phone)}<br>` : ""}
                     <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}<br>
                     ${sub.comment ? `<strong>Комментарий:</strong> ${escapeHtml(sub.comment)}<br>` : ""}
@@ -777,6 +785,10 @@ async function renderAdminList() {
     const shouldOpenAdmin = isAdminRoute || window.location.pathname === "/admin";
 
     if (shouldOpenAdmin) {
+        document.querySelectorAll(".filter-btn[data-filter]").forEach((b) => b.classList.remove("active"));
+        const pendingBtn = document.querySelector('.filter-btn[data-filter="pending"]');
+        pendingBtn?.classList.add("active");
+        currentFilter = "pending";
         const ok = await ensureAdminAccess();
         if (ok) {
             document.getElementById("admin-tab-btn").click();

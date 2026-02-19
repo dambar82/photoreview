@@ -5,6 +5,7 @@ let modalOffsetY = 0;
 let isModalDragging = false;
 let modalDragStartX = 0;
 let modalDragStartY = 0;
+let modalOriginalUrl = "";
 let isProfileOpen = false;
 const isAdminView = Boolean(window.CABINET_CONTEXT && window.CABINET_CONTEXT.adminView);
 let cabinetValidationInProgress = false;
@@ -35,6 +36,7 @@ const modalClose = document.getElementById("photo-modal-close");
 const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const zoomResetBtn = document.getElementById("zoom-reset-btn");
+const openNewTabBtn = document.getElementById("open-new-tab-btn");
 
 function filesSignature(files) {
     return Array.from(files || [])
@@ -207,6 +209,7 @@ function applyModalTransform() {
 
 function openPhotoModal(src) {
     if (!src) return;
+    modalOriginalUrl = src;
     modalImage.src = src;
     modalOffsetX = 0;
     modalOffsetY = 0;
@@ -218,6 +221,7 @@ function openPhotoModal(src) {
 function closePhotoModal() {
     modal.classList.remove("open");
     modalImage.src = "";
+    modalOriginalUrl = "";
     document.body.style.overflow = "";
     isModalDragging = false;
 }
@@ -247,6 +251,10 @@ function endModalDrag() {
 zoomInBtn.addEventListener("click", () => setModalScale(modalScale + 0.2));
 zoomOutBtn.addEventListener("click", () => setModalScale(modalScale - 0.2));
 zoomResetBtn.addEventListener("click", () => setModalScale(1));
+openNewTabBtn?.addEventListener("click", () => {
+    if (!modalOriginalUrl) return;
+    window.open(modalOriginalUrl, "_blank", "noopener,noreferrer");
+});
 modalClose.addEventListener("click", closePhotoModal);
 modalImage.addEventListener("mousedown", (e) => {
     beginModalDrag(e.clientX, e.clientY);
@@ -347,7 +355,7 @@ function renderPhotos(user) {
 
     photosList.innerHTML = photos.map((photo) => `
         <div class="submission-card user-photo-card">
-            <img src="${photo.url}" alt="Photo" class="admin-photo-thumb" onclick="window.openPhotoModal('${photo.url}')">
+            <img src="${photo.thumbUrl || photo.url}" alt="Photo" class="admin-photo-thumb" onclick="window.openPhotoModal('${photo.url}')">
             <div class="submission-info">
                 <strong>Файл:</strong> ${escapeHtml(photo.name)}<br>
                 <strong>Размер:</strong> ${formatPhotoSize(photo.size)}<br>

@@ -16,12 +16,16 @@ from werkzeug.utils import secure_filename
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("PHOTO_REVIEW_DB_PATH", str(BASE_DIR / "photoreview.db"))).resolve()
 UPLOADS_DIR = Path(os.getenv("PHOTO_REVIEW_UPLOADS_DIR", str(BASE_DIR / "uploads"))).resolve()
+THUMBS_DIR = (UPLOADS_DIR / "thumbs").resolve()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+THUMBS_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MIN_IMAGE_SIZE_BYTES = 250 * 1024
 MIN_IMAGE_WIDTH = 2000
+THUMB_MAX_PX = 400
+THUMB_QUALITY = 75
 
 ADMIN_USERNAME = os.getenv("PHOTO_REVIEW_ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.getenv("PHOTO_REVIEW_ADMIN_PASS", "1982@Sd")
@@ -149,6 +153,7 @@ def init_db() -> None:
                 submission_id INTEGER NOT NULL,
                 file_name TEXT NOT NULL,
                 file_path TEXT NOT NULL,
+                thumb_path TEXT,
                 file_size INTEGER NOT NULL,
                 is_original INTEGER NOT NULL DEFAULT 0,
                 review_status TEXT NOT NULL DEFAULT 'pending',
@@ -182,6 +187,8 @@ def init_db() -> None:
             )
         if "parent_photo_id" not in file_columns:
             conn.execute("ALTER TABLE files ADD COLUMN parent_photo_id INTEGER")
+        if "thumb_path" not in file_columns:
+            conn.execute("ALTER TABLE files ADD COLUMN thumb_path TEXT")
         conn.commit()
 
 
@@ -223,13 +230,20 @@ def remove_submission_files(conn: sqlite3.Connection, submission_id: int, origin
     if originals_only:
         where += " AND is_original = 1"
     rows = conn.execute(
-        f"SELECT file_path FROM files WHERE {where}",
+        f"SELECT file_path, thumb_path FROM files WHERE {where}",
         params,
     ).fetchall()
     for row in rows:
         try:
             file_name = Path(str(row["file_path"]).replace("\\", "/")).name
             (UPLOADS_DIR / file_name).unlink(missing_ok=True)
+        except OSError:
+            pass
+        try:
+            thumb_raw = row["thumb_path"]
+            if thumb_raw:
+                thumb_name = Path(str(thumb_raw).replace("\\", "/")).name
+                (THUMBS_DIR / thumb_name).unlink(missing_ok=True)
         except OSError:
             pass
     conn.execute(f"DELETE FROM files WHERE {where}", params)
@@ -241,6 +255,11 @@ def file_to_payload(row: sqlite3.Row) -> dict:
         "name": row["file_name"],
         "size": row["file_size"],
         "url": f"/{row['file_path'].replace(os.sep, '/')}",
+        "thumbUrl": (
+            f"/{row['thumb_path'].replace(os.sep, '/')}"
+            if row["thumb_path"]
+            else f"/{row['file_path'].replace(os.sep, '/')}"
+        ),
         "status": row["review_status"] if row["review_status"] else "pending",
         "comment": row["review_comment"] or "",
         "parentPhotoId": row["parent_photo_id"],
@@ -269,7 +288,7 @@ def recalc_submission_status(conn: sqlite3.Connection, submission_id: int) -> st
 def build_submission_payload(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
     files = conn.execute(
         """
-        SELECT id, file_name, file_path, file_size, is_original, review_status, review_comment
+        SELECT id, file_name, file_path, thumb_path, file_size, is_original, review_status, review_comment
              , parent_photo_id
         FROM files
         WHERE submission_id = ?
@@ -312,7 +331,7 @@ def build_submission_payload(conn: sqlite3.Connection, row: sqlite3.Row) -> dict
     }
 
 
-def save_uploaded_file(submission_id: int, storage, is_original: bool) -> tuple[str, int, str]:
+def save_uploaded_file(submission_id: int, storage, is_original: bool) -> tuple[str, int, str, str | None]:
     safe_name = secure_filename(storage.filename or "file")
     ext = Path(safe_name).suffix.lower()
 
@@ -342,21 +361,31 @@ def save_uploaded_file(submission_id: int, storage, is_original: bool) -> tuple[
     unique_name = f"{submission_id}_{uuid.uuid4().hex}{suffix}"
     save_path = UPLOADS_DIR / unique_name
     storage.save(save_path)
+    thumb_rel_path: str | None = None
+    if not is_original:
+        thumb_name = f"{submission_id}_{uuid.uuid4().hex}_thumb.jpg"
+        thumb_path = THUMBS_DIR / thumb_name
+        with Image.open(save_path) as src:
+            if src.mode not in ("RGB", "L"):
+                src = src.convert("RGB")
+            src.thumbnail((THUMB_MAX_PX, THUMB_MAX_PX))
+            src.save(thumb_path, format="JPEG", quality=THUMB_QUALITY, optimize=True)
+        thumb_rel_path = f"uploads/thumbs/{thumb_name}"
 
-    return safe_name, size, f"uploads/{unique_name}"
+    return safe_name, size, f"uploads/{unique_name}", thumb_rel_path
 
 
 def validate_and_store_photo_files(conn: sqlite3.Connection, submission_id: int, files) -> None:
     for storage in files:
-        file_name, file_size, file_path = save_uploaded_file(submission_id, storage, is_original=False)
+        file_name, file_size, file_path, thumb_path = save_uploaded_file(submission_id, storage, is_original=False)
         conn.execute(
             """
                 INSERT INTO files (
-                    submission_id, file_name, file_path, file_size, is_original, review_status, review_comment, parent_photo_id
+                    submission_id, file_name, file_path, thumb_path, file_size, is_original, review_status, review_comment, parent_photo_id
                 )
-                VALUES (?, ?, ?, ?, 0, 'pending', '', NULL)
+                VALUES (?, ?, ?, ?, ?, 0, 'pending', '', NULL)
                 """,
-                (submission_id, file_name, file_path, file_size),
+                (submission_id, file_name, file_path, thumb_path, file_size),
             )
 
 
@@ -672,11 +701,11 @@ def upload_originals(submission_id: int):
         remove_submission_files(conn, submission_id, originals_only=True)
 
         for storage in files:
-            file_name, file_size, file_path = save_uploaded_file(submission_id, storage, is_original=True)
+            file_name, file_size, file_path, _ = save_uploaded_file(submission_id, storage, is_original=True)
             conn.execute(
                 """
-                INSERT INTO files (submission_id, file_name, file_path, file_size, is_original)
-                VALUES (?, ?, ?, ?, 1)
+                INSERT INTO files (submission_id, file_name, file_path, thumb_path, file_size, is_original)
+                VALUES (?, ?, ?, NULL, ?, 1)
                 """,
                 (submission_id, file_name, file_path, file_size),
             )
@@ -732,15 +761,15 @@ def upload_originals_for_photo(photo_id: int):
         )
 
         for storage in files:
-            file_name, file_size, file_path = save_uploaded_file(
+            file_name, file_size, file_path, _ = save_uploaded_file(
                 photo["submission_id"], storage, is_original=True
             )
             conn.execute(
                 """
                 INSERT INTO files (
-                    submission_id, file_name, file_path, file_size, is_original, parent_photo_id
+                    submission_id, file_name, file_path, thumb_path, file_size, is_original, parent_photo_id
                 )
-                VALUES (?, ?, ?, ?, 1, ?)
+                VALUES (?, ?, ?, NULL, ?, 1, ?)
                 """,
                 (photo["submission_id"], file_name, file_path, file_size, photo_id),
             )
@@ -905,13 +934,20 @@ def delete_uploaded_photo(photo_id: int):
 
         # Удаляем само фото
         photo_path_row = conn.execute(
-            "SELECT file_path FROM files WHERE id = ?",
+            "SELECT file_path, thumb_path FROM files WHERE id = ?",
             (photo_id,),
         ).fetchone()
         if photo_path_row:
             try:
                 file_name = Path(str(photo_path_row["file_path"]).replace("\\", "/")).name
                 (UPLOADS_DIR / file_name).unlink(missing_ok=True)
+            except OSError:
+                pass
+            try:
+                thumb_raw = photo_path_row["thumb_path"]
+                if thumb_raw:
+                    thumb_name = Path(str(thumb_raw).replace("\\", "/")).name
+                    (THUMBS_DIR / thumb_name).unlink(missing_ok=True)
             except OSError:
                 pass
         conn.execute("DELETE FROM files WHERE id = ?", (photo_id,))
