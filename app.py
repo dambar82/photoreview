@@ -107,11 +107,11 @@ def get_db_connection() -> sqlite3.Connection:
 
 
 def now_ru() -> str:
-    return datetime.now(MSK_TZ).strftime("%d.%m.%Y, %H:%M:%S")
+    return datetime.now(MSK_TZ).strftime("%d.%m.%Y, %H:%M")
 
 
 def now_iso() -> str:
-    return datetime.now(MSK_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(MSK_TZ).strftime("%Y-%m-%d %H:%M")
 
 
 def normalize_activity_time(value: str | None) -> str:
@@ -122,6 +122,30 @@ def normalize_activity_time(value: str | None) -> str:
         text = text.split("+", 1)[0]
     if text.endswith("Z"):
         text = text[:-1]
+    if len(text) >= 16:
+        return text[:16]
+    return text
+
+
+def normalize_ru_datetime(value: str | None) -> str:
+    if not value:
+        return ""
+    text = str(value).strip().replace("T", " ")
+    if "+" in text:
+        text = text.split("+", 1)[0]
+    if text.endswith("Z"):
+        text = text[:-1]
+    if ", " in text:
+        left, right = text.split(", ", 1)
+        parts = right.split(":")
+        if len(parts) >= 2:
+            return f"{left}, {parts[0]}:{parts[1]}"
+    if "." in text and " " in text:
+        # dd.mm.yyyy hh:mm:ss -> dd.mm.yyyy hh:mm
+        date_part, time_part = text.split(" ", 1)
+        parts = time_part.split(":")
+        if len(parts) >= 2:
+            return f"{date_part} {parts[0]}:{parts[1]}"
     return text
 
 
@@ -353,8 +377,8 @@ def build_submission_payload(conn: sqlite3.Connection, row: sqlite3.Row, include
         "comment": row["comment"] or "",
         "status": row["status"],
         "adminComment": row["admin_comment"] or "",
-        "createdAt": row["created_at"],
-        "updatedAt": row["updated_at"] or "",
+        "createdAt": normalize_ru_datetime(row["created_at"]),
+        "updatedAt": normalize_ru_datetime(row["updated_at"]),
         "photos": photos,
         "originals": submission_originals,
     }

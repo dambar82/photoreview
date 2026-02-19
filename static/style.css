@@ -741,7 +741,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 16px;
-    align-items: start;
+    align-items: stretch;
 }
 
 #admin-list .approved-meta-left {
@@ -756,8 +756,10 @@
 #admin-list .approved-meta-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
+    min-height: 78px;
 }
 
 #admin-list .approved-originals-inline {
@@ -791,6 +793,10 @@
 #admin-list .approved-photo-row .submission-info-card {
     width: 280px;
     padding: 10px 12px;
+    min-height: 78px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 #admin-list .submission-originals-row {

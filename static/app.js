@@ -807,8 +807,7 @@ async function renderAdminList() {
                         <div class="submission-info">
                             <div class="submission-info-card">
                                 <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
-                                <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
-                                <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}
+                                <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a>
                             </div>
                         </div>
                     </div>
@@ -879,8 +878,7 @@ async function renderAdminList() {
                     <div class="submission-info">
                         <div class="submission-info-card">
                             <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
-                            <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
-                            <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}
+                            <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a>
                         </div>
                     </div>
                 </div>
