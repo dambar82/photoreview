@@ -700,12 +700,25 @@
     display: grid;
     grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(240px, 280px);
     gap: 10px;
-    align-items: start;
+    align-items: center;
     padding: 8px;
 }
 
+#admin-list .approved-photo-preview {
+    width: 100%;
+    max-width: 280px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.03);
+}
+
 #admin-list .approved-photo-thumb {
-    width: auto;
+    width: 100%;
     max-width: 100%;
     height: auto;
     max-height: 120px;
@@ -723,27 +736,59 @@
     line-height: 1.25;
 }
 
+#admin-list .approved-meta-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: start;
+}
+
+#admin-list .approved-meta-left {
+    min-width: 0;
+}
+
+#admin-list .approved-meta-line {
+    margin: 0 0 2px;
+    color: var(--color-text-secondary);
+}
+
+#admin-list .approved-meta-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#admin-list .approved-originals-inline {
+    margin-top: 6px;
+    color: var(--color-text-secondary);
+}
+
 #admin-list .photo-actions-compact {
     display: flex;
-    margin-top: 6px;
+    margin-top: 0;
 }
 
 #admin-list .btn-reject-compact {
     width: auto;
-    min-width: 120px;
-    padding: 6px 12px;
-    font-size: 14px;
+    min-width: 112px;
+    padding: 5px 10px;
+    font-size: 13px;
     font-weight: 600;
 }
 
 #admin-list .approved-comment-box {
-    margin-top: 6px;
+    margin-top: 8px;
     padding: 6px 8px;
     border: 1px solid var(--color-border);
     border-radius: 8px;
     background: var(--color-bg-muted);
     color: var(--color-text-primary);
     font-size: 13px;
+}
+
+#admin-list .approved-photo-row .submission-info-card {
+    padding: 10px 12px;
 }
 
 #admin-list .submission-originals-row {
@@ -778,6 +823,12 @@
 
     #admin-list .approved-photo-row {
         grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    #admin-list .approved-meta-main {
+        grid-template-columns: 1fr;
+        gap: 8px;
     }
 }
 

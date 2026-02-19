@@ -770,35 +770,39 @@ async function renderAdminList() {
                             onclick="${photo.isDeleted ? `purgeDeletedPhoto(${photo.id})` : `deleteUploadedPhoto(${photo.id})`}"
                             title="${photo.isDeleted ? "Удалить навсегда" : "Удалить фото"}"
                         >✕</button>
-                        <img
-                            src="${photo.thumbUrl || photo.url}"
-                            alt="Photo"
-                            class="admin-photo-thumb approved-photo-thumb"
-                            onclick="openPhotoModal('${photo.url}')"
-                        >
+                        <div class="approved-photo-preview">
+                            <img
+                                src="${photo.thumbUrl || photo.url}"
+                                alt="Photo"
+                                class="admin-photo-thumb approved-photo-thumb"
+                                onclick="openPhotoModal('${photo.url}')"
+                            >
+                        </div>
                         <div class="approved-photo-meta">
-                            <span class="status-badge ${photo.isDeleted ? "status-deleted" : `status-${photo.status}`}">${photoStatusLabel(photo.isDeleted ? "deleted" : photo.status)}</span>
-                            <div style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px;">
-                                <div><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
-                                <div><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
+                            <div class="approved-meta-main">
+                                <div class="approved-meta-left">
+                                    <div class="approved-meta-line"><strong>Размер:</strong> ${formatPhotoSize(photo.size)}</div>
+                                    <div class="approved-meta-line"><strong>Дата:</strong> ${escapeHtml(sub.createdAt || "")}</div>
+                                    ${photo.originals && photo.originals.length > 0 ? `
+                                        <div class="approved-originals-inline">
+                                            <strong>Оригинал:</strong>
+                                            ${photo.originals.map((orig) => `
+                                                <a href="${orig.url}" target="_blank" rel="noopener" class="original-link">${escapeHtml(orig.name)}</a>
+                                                <span class="original-size">(${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
+                                            `).join(" ")}
+                                        </div>
+                                    ` : ""}
+                                </div>
+                                <div class="approved-meta-actions">
+                                    <span class="status-badge ${photo.isDeleted ? "status-deleted" : `status-${photo.status}`}">${photoStatusLabel(photo.isDeleted ? "deleted" : photo.status)}</span>
+                                    ${photo.isDeleted ? `` : `
+                                        <div class="photo-actions photo-actions-compact">
+                                            <button class="btn-reject btn-reject-compact" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>
+                                        </div>
+                                    `}
+                                </div>
                             </div>
                             ${photo.comment ? `<div class="approved-comment-box">${escapeHtml(photo.comment)}</div>` : ""}
-                            ${photo.isDeleted ? `` : `
-                                <div class="photo-actions photo-actions-compact">
-                                    <button class="btn-reject btn-reject-compact" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>
-                                </div>
-                            `}
-                            ${photo.originals && photo.originals.length > 0 ? `
-                                <div class="originals-list">
-                                    <div class="originals-title">Оригинал:</div>
-                                    ${photo.originals.map((orig) => `
-                                        <div class="originals-item">
-                                            <a href="${orig.url}" target="_blank" rel="noopener" class="original-link">${escapeHtml(orig.name)}</a>
-                                            <span class="original-size">(${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
-                                        </div>
-                                    `).join("")}
-                                </div>
-                            ` : ""}
                         </div>
                         <div class="submission-info">
                             <div class="submission-info-card">
