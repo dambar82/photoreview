@@ -16,6 +16,7 @@ const uploadForm = document.getElementById("upload-form");
 const cabinetFileUpload = document.getElementById("cabinet-file-upload");
 const cabinetPhotoInput = document.getElementById("cabinet-photo-input");
 const cabinetFilePreview = document.getElementById("cabinet-file-preview");
+const cabinetUploadSubmitBtn = document.getElementById("cabinet-upload-submit-btn");
 const photosList = document.getElementById("photos-list");
 const photosTitle = document.getElementById("photos-title");
 const uploadSection = document.getElementById("upload-section");
@@ -33,6 +34,11 @@ function filesSignature(files) {
     return Array.from(files || [])
         .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
         .join("|");
+}
+
+function setCabinetUploadButtonVisible(visible) {
+    if (!cabinetUploadSubmitBtn) return;
+    cabinetUploadSubmitBtn.style.display = visible ? "block" : "none";
 }
 
 async function appendStableFiles(formData, fieldName, files) {
@@ -127,6 +133,7 @@ async function validateAndPreviewCabinetFiles(files) {
             lastCabinetValidationOk = false;
             lastCabinetFilesSignature = "";
             cabinetValidationInProgress = false;
+            setCabinetUploadButtonVisible(false);
             return false;
         }
 
@@ -141,6 +148,7 @@ async function validateAndPreviewCabinetFiles(files) {
                 lastCabinetValidationOk = false;
                 lastCabinetFilesSignature = "";
                 cabinetValidationInProgress = false;
+                setCabinetUploadButtonVisible(false);
                 return false;
             }
 
@@ -160,6 +168,7 @@ async function validateAndPreviewCabinetFiles(files) {
             lastCabinetValidationOk = false;
             lastCabinetFilesSignature = "";
             cabinetValidationInProgress = false;
+            setCabinetUploadButtonVisible(false);
             return false;
         }
     }
@@ -167,6 +176,7 @@ async function validateAndPreviewCabinetFiles(files) {
     lastCabinetValidationOk = true;
     lastCabinetFilesSignature = filesSignature(files);
     cabinetValidationInProgress = false;
+    setCabinetUploadButtonVisible(true);
     return true;
 }
 
@@ -428,6 +438,9 @@ uploadForm.addEventListener("submit", async (e) => {
         renderPhotos(currentUser);
         cabinetPhotoInput.value = "";
         cabinetFilePreview.innerHTML = "";
+        lastCabinetValidationOk = false;
+        lastCabinetFilesSignature = "";
+        setCabinetUploadButtonVisible(false);
     } catch (err) {
         console.error(err.message);
     }
@@ -483,6 +496,7 @@ window.deleteUploadedPhoto = deleteUploadedPhoto;
     cabinetContent.style.display = "block";
     emailForm.style.display = "none";
     setProfilePanelOpen(false);
+    setCabinetUploadButtonVisible(false);
     document.getElementById("profile-email").value = initialEmail;
     await loadUser(initialEmail);
 })();
