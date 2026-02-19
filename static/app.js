@@ -752,6 +752,12 @@ async function renderAdminList() {
                     <div class="submission-photos">
                         ${(sub.photos || []).map((photo) => `
                             <div class="admin-photo-item">
+                                <button
+                                    type="button"
+                                    class="btn-delete-corner"
+                                    onclick="${photo.isDeleted ? `purgeDeletedPhoto(${photo.id})` : `deleteUploadedPhoto(${photo.id})`}"
+                                    title="${photo.isDeleted ? "Удалить навсегда" : "Удалить фото"}"
+                                >✕</button>
                                 <img
                                     src="${photo.thumbUrl || photo.url}"
                                     alt="Photo"
@@ -766,14 +772,11 @@ async function renderAdminList() {
                                     ${photo.isDeleted && photo.deletedAt ? `<div><strong>Удалено:</strong> ${escapeHtml(photo.deletedAt)}</div>` : ""}
                                 </div>
                                 ${photo.isDeleted ? `
-                                    <div class="photo-actions">
-                                        <button class="btn-delete" onclick="purgeDeletedPhoto(${photo.id})">Удалить навсегда</button>
-                                    </div>
+                                    
                                 ` : `
                                     <div class="photo-actions">
                                         ${photo.status !== "approved" ? `<button class="btn-approve" onclick="reviewPhoto(${photo.id}, 'approved')">Одобрить</button>` : ""}
                                         ${photo.status !== "rejected" ? `<button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>` : ""}
-                                        <button class="btn-delete" onclick="deleteUploadedPhoto(${photo.id})">Удалить фото</button>
                                     </div>
                                     ${photo.status === "approved"
                                         ? (photo.comment
@@ -787,7 +790,6 @@ async function renderAdminList() {
                                                 id="photo-comment-${photo.id}"
                                                 placeholder="Комментарий по этому фото"
                                             >${escapeHtml(photo.comment || "")}</textarea>
-                                            <button class="photo-save" type="button" onclick="savePhotoComment(${photo.id})">Сохранить комментарий</button>
                                         `
                                     }
                                 `}

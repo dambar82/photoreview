@@ -415,20 +415,42 @@
     border: 1px solid var(--color-border);
     border-radius: 8px;
     background: var(--color-bg-base);
+    position: relative;
 }
 
 .admin-photo-thumb {
     cursor: zoom-in;
 }
 
+.btn-delete-corner {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-error);
+    color: #fff;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.btn-delete-corner:hover {
+    opacity: 0.9;
+}
+
 .photo-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     margin-top: 8px;
 }
 
 .photo-actions button {
-    flex: 1;
+    width: 100%;
     border: none;
     border-radius: 6px;
     padding: 8px 10px;
