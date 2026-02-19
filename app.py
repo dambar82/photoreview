@@ -8,6 +8,7 @@ from email.message import EmailMessage
 from pathlib import Path
 from threading import Thread
 from urllib.parse import quote, unquote
+from zoneinfo import ZoneInfo
 
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from PIL import Image, UnidentifiedImageError
@@ -43,6 +44,7 @@ PUBLIC_BASE_URL = os.getenv("PHOTO_REVIEW_BASE_URL", "").strip().rstrip("/")
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
+MSK_TZ = ZoneInfo("Europe/Moscow")
 
 
 def public_url(path: str) -> str:
@@ -105,15 +107,15 @@ def get_db_connection() -> sqlite3.Connection:
 
 
 def now_ru() -> str:
-    return datetime.now().strftime("%d.%m.%Y, %H:%M:%S")
+    return datetime.now(MSK_TZ).strftime("%d.%m.%Y, %H:%M:%S")
 
 
 def now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return datetime.now(MSK_TZ).isoformat(timespec="seconds")
 
 
 def today_key() -> str:
-    return datetime.now().strftime("%Y-%m-%d")
+    return datetime.now(MSK_TZ).strftime("%Y-%m-%d")
 
 
 PHOTO_ID_RE = re.compile(r"#(\d+)")
