@@ -784,8 +784,8 @@ async function renderAdminList() {
                             </div>
                             ${photo.comment ? `<div class="approved-comment-box">${escapeHtml(photo.comment)}</div>` : ""}
                             ${photo.isDeleted ? `` : `
-                                <div class="photo-actions">
-                                    <button class="btn-reject" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>
+                                <div class="photo-actions photo-actions-compact">
+                                    <button class="btn-reject btn-reject-compact" onclick="reviewPhoto(${photo.id}, 'rejected')">Отклонить</button>
                                 </div>
                             `}
                             ${photo.originals && photo.originals.length > 0 ? `
