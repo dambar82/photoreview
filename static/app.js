@@ -157,6 +157,8 @@ const photoInput = document.getElementById("photo");
 const filePreview = document.getElementById("file-preview");
 const submitEmailInput = document.getElementById("email");
 const existingCabinetBtn = document.getElementById("existing-cabinet-btn");
+const submitForm = document.getElementById("submit-form");
+const submitUploadStatus = document.getElementById("submit-upload-status");
 let emailCheckTimer = null;
 
 fileUpload.addEventListener("click", () => photoInput.click());
@@ -282,6 +284,15 @@ document.getElementById("submit-form").addEventListener("submit", async (e) => {
     formData.append("comment", document.getElementById("comment").value);
     Array.from(photoInput.files).forEach((file) => formData.append("photos", file));
 
+    const submitBtn = submitForm?.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Загрузка...";
+    }
+    if (submitUploadStatus) {
+        submitUploadStatus.style.display = "block";
+    }
+
     try {
         const result = await api("/api/submissions", { method: "POST", body: formData });
         const form = document.getElementById("submit-form");
@@ -298,6 +309,13 @@ document.getElementById("submit-form").addEventListener("submit", async (e) => {
         `;
     } catch (err) {
         console.error(err.message);
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Отправить на проверку";
+        }
+        if (submitUploadStatus) {
+            submitUploadStatus.style.display = "none";
+        }
     }
 });
 

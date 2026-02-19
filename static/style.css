@@ -731,6 +731,13 @@
     margin-top: 10px;
 }
 
+.upload-status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
 @media (max-width: 1024px) {
     .user-photo-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));

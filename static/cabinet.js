@@ -17,6 +17,7 @@ const cabinetFileUpload = document.getElementById("cabinet-file-upload");
 const cabinetPhotoInput = document.getElementById("cabinet-photo-input");
 const cabinetFilePreview = document.getElementById("cabinet-file-preview");
 const cabinetUploadSubmitBtn = document.getElementById("cabinet-upload-submit-btn");
+const cabinetUploadStatus = document.getElementById("cabinet-upload-status");
 const photosList = document.getElementById("photos-list");
 const photosTitle = document.getElementById("photos-title");
 const uploadSection = document.getElementById("upload-section");
@@ -39,6 +40,15 @@ function filesSignature(files) {
 function setCabinetUploadButtonVisible(visible) {
     if (!cabinetUploadSubmitBtn) return;
     cabinetUploadSubmitBtn.style.display = visible ? "block" : "none";
+}
+
+function setCabinetUploadingState(loading) {
+    if (!cabinetUploadSubmitBtn) return;
+    cabinetUploadSubmitBtn.disabled = loading;
+    cabinetUploadSubmitBtn.textContent = loading ? "Загрузка..." : "Загрузить фото";
+    if (cabinetUploadStatus) {
+        cabinetUploadStatus.style.display = loading ? "block" : "none";
+    }
 }
 
 async function appendStableFiles(formData, fieldName, files) {
@@ -430,6 +440,7 @@ uploadForm.addEventListener("submit", async (e) => {
     await appendStableFiles(fd, "photos", files);
 
     try {
+        setCabinetUploadingState(true);
         const result = await api(`/api/users/${encodeURIComponent(email)}/photos`, {
             method: "POST",
             body: fd,
@@ -441,8 +452,10 @@ uploadForm.addEventListener("submit", async (e) => {
         lastCabinetValidationOk = false;
         lastCabinetFilesSignature = "";
         setCabinetUploadButtonVisible(false);
+        setCabinetUploadingState(false);
     } catch (err) {
         console.error(err.message);
+        setCabinetUploadingState(false);
     }
 });
 
@@ -497,6 +510,7 @@ window.deleteUploadedPhoto = deleteUploadedPhoto;
     emailForm.style.display = "none";
     setProfilePanelOpen(false);
     setCabinetUploadButtonVisible(false);
+    setCabinetUploadingState(false);
     document.getElementById("profile-email").value = initialEmail;
     await loadUser(initialEmail);
 })();
