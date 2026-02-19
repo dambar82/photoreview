@@ -111,7 +111,18 @@ def now_ru() -> str:
 
 
 def now_iso() -> str:
-    return datetime.now(MSK_TZ).isoformat(timespec="seconds")
+    return datetime.now(MSK_TZ).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def normalize_activity_time(value: str | None) -> str:
+    if not value:
+        return ""
+    text = str(value).replace("T", " ")
+    if "+" in text:
+        text = text.split("+", 1)[0]
+    if text.endswith("Z"):
+        text = text[:-1]
+    return text
 
 
 def today_key() -> str:
@@ -1142,7 +1153,7 @@ def admin_activities():
                     "district": row["district"] or "",
                     "actionType": row["action_type"],
                     "details": row["details"] or "",
-                    "createdAt": row["created_at_iso"],
+                    "createdAt": normalize_activity_time(row["created_at_iso"]),
                     "profileUrl": f"/user/{quote(row['actor_email'], safe='')}",
                     "photoUrl": photo_links.get(extract_photo_id(row["details"] or "")),
                 }
