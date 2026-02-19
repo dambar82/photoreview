@@ -747,7 +747,7 @@ async function renderAdminList() {
         }
 
         adminList.innerHTML = submissions.map((sub) => `
-            <div class="submission-card">
+            <div class="submission-card" data-photo-count="${(sub.photos || []).length}">
                 ${(sub.photos || []).map((photo) => `
                     <div class="admin-photo-item">
                         <img
@@ -784,23 +784,23 @@ async function renderAdminList() {
                 `).join("")}
 
                 <div class="submission-info">
-                    <strong>Имя:</strong> ${escapeHtml(sub.name)}<br>
-                    <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
-                    <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
-                    ${sub.phone ? `<strong>Телефон:</strong> ${escapeHtml(sub.phone)}<br>` : ""}
-                    <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}<br>
-                    ${sub.comment ? `<strong>Комментарий:</strong> ${escapeHtml(sub.comment)}<br>` : ""}
+                    <div class="submission-info-card">
+                        <strong>Имя:</strong> ${escapeHtml(sub.name)}<br>
+                        <strong>Район:</strong> ${escapeHtml(sub.district)}<br>
+                        <strong>Email:</strong> <a class="activity-link-secondary" href="/user/${encodeURIComponent(sub.email)}">${escapeHtml(sub.email)}</a><br>
+                        ${sub.phone ? `<strong>Телефон:</strong> ${escapeHtml(sub.phone)}<br>` : ""}
+                        <strong>Дата:</strong> ${escapeHtml(sub.createdAt)}<br>
+                        ${sub.comment ? `<strong>Комментарий:</strong> ${escapeHtml(sub.comment)}<br>` : ""}
+                    </div>
                 </div>
 
-                ${currentFilter === "all" ? `<span class="status-badge status-${sub.status}">${statusLabel(sub.status)}</span>` : ""}
-
                 ${sub.originals && sub.originals.length > 0 ? `
-                    <div style="margin-top: 10px; padding: 10px; background: var(--color-bg-muted); border-radius: 6px;">
+                    <div class="submission-originals">
                         <strong style="color: var(--color-primary);">Оригинал (${sub.originals.length}):</strong><br>
                         ${sub.originals.map((orig) => `
-                            <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                                <span style="font-size: 14px;">${escapeHtml(orig.name)} (${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
-                                <a href="${orig.url}" download="${escapeHtml(orig.name)}" style="padding: 4px 8px; background: var(--color-primary); color: white; border-radius: 4px; font-size: 12px; text-decoration: none;">Скачать</a>
+                            <div class="submission-originals-row">
+                                <span class="submission-originals-size">${escapeHtml(orig.name)} (${(orig.size / 1024 / 1024).toFixed(2)} МБ)</span>
+                                <a href="${orig.url}" download="${escapeHtml(orig.name)}" class="submission-originals-link">Скачать</a>
                             </div>
                         `).join("")}
                     </div>
