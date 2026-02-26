@@ -1209,6 +1209,7 @@ def admin_update_status(submission_id: int):
 
 
 @app.post("/api/admin/photos/<int:file_id>/review")
+@app.post("/api/admin/photos/<int:file_id>/status")
 def admin_review_photo(file_id: int):
     if not is_admin():
         return jsonify({"error": "Требуется авторизация администратора"}), 401

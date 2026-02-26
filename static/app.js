@@ -37,7 +37,8 @@ async function api(url, options = {}) {
     const response = await fetch(url, options);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(data.error || "Ошибка запроса");
+        const statusLabel = `HTTP ${response.status}`;
+        throw new Error(data.error || `${statusLabel}: Ошибка запроса`);
     }
     return data;
 }
@@ -642,7 +643,7 @@ async function reviewPhoto(fileId, status) {
     const comment = commentEl ? commentEl.value : "";
 
     try {
-        await api(`/api/admin/photos/${fileId}/review`, {
+        await api(`/api/admin/photos/${fileId}/status`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status, comment }),
