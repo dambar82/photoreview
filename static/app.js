@@ -641,15 +641,32 @@ adminSectionActivityBtn?.addEventListener("click", async () => {
 async function reviewPhoto(fileId, status) {
     const commentEl = document.getElementById(`photo-comment-${fileId}`);
     const comment = commentEl ? commentEl.value : "";
+    const url = `/api/admin/photos/${fileId}/status`;
 
     try {
-        await api(`/api/admin/photos/${fileId}/status`, {
+        await api(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status, comment }),
         });
         await renderAdminList();
     } catch (err) {
+        if (String(err.message || "").includes("HTTP 403")) {
+            try {
+                const fd = new FormData();
+                fd.append("status", status);
+                fd.append("comment", comment);
+                await api(url, {
+                    method: "POST",
+                    body: fd,
+                });
+                await renderAdminList();
+                return;
+            } catch (retryErr) {
+                console.error(retryErr.message);
+                return;
+            }
+        }
         console.error(err.message);
     }
 }

@@ -267,6 +267,16 @@ def is_admin() -> bool:
     return bool(session.get("is_admin"))
 
 
+def request_payload() -> dict:
+    """Read JSON first, then gracefully fall back to form payloads."""
+    payload = request.get_json(silent=True)
+    if isinstance(payload, dict):
+        return payload
+    if request.form:
+        return request.form.to_dict(flat=True)
+    return {}
+
+
 def remove_submission_files(conn: sqlite3.Connection, submission_id: int, originals_only: bool = False) -> None:
     where = "submission_id = ?"
     params = [submission_id]
@@ -1193,7 +1203,7 @@ def admin_update_status(submission_id: int):
     if not is_admin():
         return jsonify({"error": "Требуется авторизация администратора"}), 401
 
-    payload = request.get_json(silent=True) or {}
+    payload = request_payload()
     new_status = payload.get("status", "").strip().lower()
     if new_status not in {"pending", "approved", "rejected"}:
         return jsonify({"error": "Некорректный статус"}), 400
@@ -1214,7 +1224,7 @@ def admin_review_photo(file_id: int):
     if not is_admin():
         return jsonify({"error": "Требуется авторизация администратора"}), 401
 
-    payload = request.get_json(silent=True) or {}
+    payload = request_payload()
     new_status = payload.get("status", "").strip().lower()
     comment = payload.get("comment", "")
     if new_status not in {"approved", "rejected"}:
@@ -1274,7 +1284,7 @@ def admin_save_photo_comment(file_id: int):
     if not is_admin():
         return jsonify({"error": "Требуется авторизация администратора"}), 401
 
-    payload = request.get_json(silent=True) or {}
+    payload = request_payload()
     comment = payload.get("comment", "")
 
     with get_db_connection() as conn:
@@ -1327,7 +1337,7 @@ def admin_update_comment(submission_id: int):
     if not is_admin():
         return jsonify({"error": "Требуется авторизация администратора"}), 401
 
-    payload = request.get_json(silent=True) or {}
+    payload = request_payload()
     comment = payload.get("comment", "")
 
     with get_db_connection() as conn:
